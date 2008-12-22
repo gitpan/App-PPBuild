@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 41;
 use Test::Exception;
 
 use_ok( 'App::PPBuild' );
@@ -57,3 +57,34 @@ dies_ok { runtask( 'Faketask' ) } "Cannot run non-existant task";
 task 'BadCode', [ 'a', 'b' ];
 dies_ok { runtask( 'BadCode' ) } "Cannot run an array as code.";
 
+$tmp = "";
+my $foo = "";
+
+lives_ok { task 'SetFoo', qw/:again:/, sub { $foo = "Foo" }; };
+lives_ok { task 'SetTmp2', qw/:again: SetFoo/, sub { $tmp = "Tmp" }; };
+
+lives_ok { is(runtask('SetFoo'), 'Foo'); };
+is($foo, 'Foo');
+
+$foo = "";
+lives_ok { is(runtask('SetTmp2'), 'Tmp') };
+is($tmp, 'Tmp');
+is($foo, 'Foo');
+
+$foo = "";
+$tmp = "";
+
+lives_ok { task 'SetFoo2', sub { $foo = "Foo" }; };
+lives_ok { task 'SetTmp3', qw/:again: SetFoo2/, sub { $tmp = "Tmp" }; };
+
+lives_ok { is(runtask('SetTmp3'), 'Tmp') };
+is($tmp, 'Tmp');
+is($foo, 'Foo');
+
+$foo = "";
+$tmp = "";
+
+lives_ok { is(runtask('SetTmp3'), 'Tmp') };
+
+is($tmp, 'Tmp');
+ok(!$foo);

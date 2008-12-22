@@ -1,3 +1,3 @@
 See the pod for lib/App/PPBuild.pm for more information.
 
-An example Makefile.ppb is in examples/
+An example PPBFile is in examples/

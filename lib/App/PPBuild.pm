@@ -23,7 +23,7 @@ the same shell session.
 
 =head1 SYNOPSIS
 
-Makefile.ppb:
+PPBFile:
 
     use App::PPBuild; #This is required.
 
@@ -51,7 +51,7 @@ To use it:
 
     $ ppbuild MyGroup
 
-    $ ppbuild --file Makefile.ppb --tasks
+    $ ppbuild --file PPBFile --tasks
     Tasks:
      MyTask  - Completes the first task
      MyTask2 - Completes MyTask2
@@ -63,8 +63,8 @@ To use it:
 
 =head1 HOW IT WORKS
 
-The ppbuild script uses a .ppb file to build a project. This is similar to make
-and Makefiles. .ppb files are pure perl files. To define a task use the Task,
+The ppbuild script uses a PPBFile file to build a project. This is similar to make
+and Makefiles. PPBFiles are pure perl files. To define a task use the Task,
 Group, or file functions. Give a task a desription using the describe function.
 
 The first argument to any task creation function is the name of the task. The
@@ -76,7 +76,7 @@ is a string it will be passed to the shell using system().
 The ppbuild script automatically adds PPBuild to the library search path. If you
 wish to write build system specific support files you can place them in a PPBuild
 directory and not need to manually call perl -I PPBuild, or add use lib 'PPBuild'
-yourself in your .ppb file. As well if you will be sharing the codebase with
+yourself in your PPBFile. As well if you will be sharing the codebase with
 others, and do not want to add PPBuild as a requirement you can copy PPBuild.pm into
 the PPBuild directory in the project.
 
@@ -91,7 +91,7 @@ the PPBuild directory in the project.
 package App::PPBuild;
 use vars qw($VERSION);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
@@ -127,6 +127,9 @@ Defines a task.
     task 'MyTask3', <<EOT;
     ...Lots of shell commands...
     EOT
+    # Specify the :again: flag to force the task to run every time it is
+    # specified instead fo only once. Same as using runtask( 'task', 1 );
+    task 'MyTask4', ':again:', qw/ ..Deps.. /, CODE;
 
 Exported by default.
 
@@ -136,12 +139,14 @@ sub task {
     my $name = shift;
     return 0 unless $name;
     my $code = pop;
-    my $depends = [ @_ ];
+
+    my ($depends, %flags) = _parse_flags(@_);
 
     _addtask(
         name => $name,
         code => $code,
         depends => $depends,
+        %flags,
     );
 }
 
@@ -158,13 +163,15 @@ sub file {
     my $name = shift;
     return 0 unless $name;
     my $code = pop;
-    my $depends = [ @_ ];
+
+    my ($depends, %flags) = _parse_flags(@_);
 
     _addtask(
         name => $name,
         file => $name,
         code => $code,
         depends => $depends,
+        %flags,
     );
 }
 
@@ -181,7 +188,8 @@ Exported by default.
 sub group {
     my $name = shift;
     return 0 unless $name;
-    my $depends = [ @_ ];
+
+    my ($depends, %flags) = _parse_flags(@_);
 
     _addtask(
         name => $name,
@@ -206,20 +214,22 @@ sub runtask {
 
     die( "No such task: $name\n" ) unless $tasks{ $name };
 
-    # Run the Tasks this one depends on:
-    runtask( $_ ) for @{ $tasks{ $name }->{ depends }};
-
     my $file = $tasks{ $name }->{ file };
 
     # Unless we are told to run the task an additional time We want to return
     # true if the task has been run, or the file to be created is done.
-    unless ( $again ) {
+    unless ( $tasks{ $name }{ again } || $again ) {
         return if $tasks{ $name }->{ ran };
         # This message should only be displayed if the rule was explicetly
         # stated in the command line, not if it is depended on by the called
         # Task. Thats why it is not stored anywhere.
         return "$file is up to date\n" if ( $file and -e $file );
     }
+
+    $tasks{ $name }->{ ran }++;
+
+    # Run the Tasks this one depends on:
+    runtask( $_ ) for @{ $tasks{ $name }->{ depends }};
 
     # If the rule has no code assume it is a group, return true
     return unless my $code = $tasks{ $name }->{ code };
@@ -238,8 +248,6 @@ sub runtask {
 
     croak( "File '$file' does not exist after file Task!\n" ) if ( $file and not -e $file );
 
-    $tasks{ $name }->{ ran }++;
-
     return $exit;
 }
 
@@ -254,6 +262,21 @@ Returns a list of task names. Return is an array, not an arrayref.
 
 sub tasklist {
     return keys %tasks;
+}
+
+sub _parse_flags {
+    my $depends = [ ];
+    my %flags;
+
+    foreach my $dep (@_) {
+        if ($dep =~ /^:([^:]+):$/) {
+            $flags{$1} = 1;
+        } else {
+            push @$depends, $dep;
+        }
+    }
+
+    return ($depends, %flags);
 }
 
 sub _addtask {

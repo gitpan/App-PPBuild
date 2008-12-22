@@ -2,6 +2,8 @@
 abstract: 'Perl Project Build System'
 author:
   - 'Chad Granum <exodist7@gmail.com>'
+build_requires:
+  Test::Exception: 0.27
 distribution_type: module
 generated_by: 'Module::Install version 0.77'
 license: gpl
@@ -13,4 +15,4 @@ no_index:
   directory:
     - inc
     - t
-version: 0.03
+version: 0.04

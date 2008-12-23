@@ -42,10 +42,11 @@ yourself if you are creating an extenstion to PPBuilder.
 Create a new instance of a Task object.
 
 Named parameters:
- name   - Name of the task
- code   - coderef or string of shell commands.
- deps   - Tasks this task depends on.
- flags  - list of flags
+
+    name   - Name of the task.
+    code   - coderef or string of shell commands.
+    deps   - Tasks this task depends on.
+    flags  - list of flags.
 
 =cut
 

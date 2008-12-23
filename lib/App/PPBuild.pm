@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-App::PPBuild - Perl Project Build System, The low-learnign curve simple build system.
+App::PPBuild - Perl Project Build System, The low-learning curve simple build system.
 
 =head1 DESCRIPTION
 
@@ -25,6 +25,79 @@ One of the primary goals is to have a small learning curve. You should not have
 to weed through miles of documentation searching for the small subset of
 features you need. At the same time PPBuild is meant to be easily expandable,
 so if you need a lot of extra functionality it is there.
+
+=head1 WHAT PPBUILD IS NOT
+
+PPBuild is not intended to replace Module::Install or similar utilities.
+Module::Install is superb, if you have a module, or simple application that
+needs to be installed you should use it. PPBuild is intended to be used on
+projects where the makefiles Module::Install generates are not sufficient for
+your needs, and making an extension to Module::Install is not an option.
+
+The ultimate flaw in using a makefile on a large perl project is 'make' itself.
+Make was designed with C projects in mind. Trying to manage a reasonably
+compicated perl project build system with makefiles is a difficult task.
+Module::Install is great for managing the makefile work for you on most modules
+and apps, however if you need to do something complicated you run into the
+'make' problem again when you extend Module::Install to write a more
+complicated Makefile.
+
+=head1 WHAT PPBUILD IS
+
+The best way to explain what PPBuild is for is an example project.
+
+You have a project based on someone else's program. This program takes modules
+as extensions, as such you are writing several such modules. You need to create
+migrations to bring people from old versions to new ones. All your extension
+modules are under active development, as such installing them each time you
+change them is not worth it. You are keepign track of each module, as well as
+vendor modules and the vendor branch of the base program in seperate locations
+under one root directory. You may have many versions of a database that might
+need to be loaded, dropped or backed up at various times. And finally, you need
+to create an intelligent system to deploy this massive mess, both to fresh
+systems, and systems with a previous installation.
+
+Obviously Module::Install should be used on each module you are using. As well
+the base program probably has its own deployment system you can work with.
+However you need to tie it all together, and put support in place to allow
+development and testing of all the components mentioned.
+
+At this point you have a few options:
+
+=over 4
+
+=item Makefiles
+
+You can write a series of Makefiles, which is how many of these projects start.
+Once a perl project of this nature gets to a given size though you begin to
+need a PHD in Makefiles.
+
+=item External Utilities
+
+You can use a non-perl tool such as Rake. Rake is nice, but it requires
+learning ruby. As well you need to have ruby installed on any system you want
+to use the project on. Requiring ruby for a perl project is silly.
+
+=item Module::Install::YourExtension
+
+You can extend Module::Install, but the name says it all, it is intended for
+modules. As well the ultimate output is a makefile, so even though you are not
+directly writing a Makefile you still need to worry about make and all it's
+deficiencies.
+
+=item Roll Your Own
+
+You can roll your own from scratch. Sometimes a good option, but what if you
+have several projects of this nature, wouldn't something reusable be nice?
+
+=item PPBuild
+
+You can use PPBuild. Use PPBuild instead of a Makefile, the syntax is similar,
+but you can write your rules, or tasks as PPBuild calls them, in pure perl, or
+as shell commands. It is a lot like Rake in that it replaces make, but you do
+not need to deal with ruby. It is reusable. It is designed for perl projects.
+
+=back
 
 =head1 SYNOPSIS
 
@@ -95,7 +168,7 @@ the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
@@ -267,11 +340,26 @@ Thus additional functionality should be done as extensions. We do not want to
 clutter PPBuild with a lot of extra functionality to get in the way.
 
 Creating an extension for PPBuild is easy:
- * Create any new Task types you want as modules that use App::PPBuild::Task as a base.
-   - See the POD for App::PPBuild for a list of available hooks and methods.
- * Create a module that uses App::PPBuild, and exports new functions similar to task() and file().
-   - The exported functions should build instances of your custom task types,
-   then add them to the list using addtask().
+
+=over 4
+
+=item Create new Task objects
+
+Create any new Task types you want as modules that use App::PPBuild::Task as a
+base. See the POD for App::PPBuild for a list of available hooks and methods.
+
+=item Create a module exporting task creation functions
+
+Create a module that uses App::PPBuild, and exports new functions similar to
+task() and file(). The exported functions should build instances of your custom
+task types, then add them to the list using addtask().
+
+=item Use the new module in your PPBuild file.
+
+After 'use App::PPBuild;' in the PPBuild file add 'use App::PPBuild::YourExt;'
+to bring in your own exported functions.
+
+=back
 
 =head1 AUTHOR
 

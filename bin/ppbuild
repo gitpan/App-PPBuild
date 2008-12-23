@@ -42,8 +42,8 @@ if ( $tasks ){
         my $this = length( $task );
         $length = $this if $this > $length;
     }
-    for my $task ( tasklist() ) {
-        printf( " %-${length}s - \%s\n", $task, describe( $task ));
+    for my $task ( sort( tasklist() )) {
+        printf( " %-${length}s - \%s\n", $task, describe( $task ) || "" );
     }
     print "\n";
     exit( 0 );

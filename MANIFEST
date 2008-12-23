@@ -1,5 +1,5 @@
 bin/ppbuild
-example/Makefile.ppb
+example/PPBFile
 gpl.txt
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
@@ -10,8 +10,12 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/App/PPBuild.pm
+lib/App/PPBuild/Task.pm
+lib/App/PPBuild/Task/File.pm
 Makefile.PL
 MANIFEST			This list of files
 META.yml
 README
-t/test.t
+t/000-ppbuild.t
+t/001-Task.t
+t/002-File.t

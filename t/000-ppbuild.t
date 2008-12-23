@@ -27,29 +27,31 @@ is_deeply( [ tasklist() ], [ sort 'taskA', 'SetTmp' ], "Both tasks are in list."
 file 'fileA', 'echo "Not making fileA"';
 dies_ok { runtask( 'fileA' ) } "Dies when file is not created in file task";
 
-die( "Try deleting the file: 'fileB'" ) unless
+warn( "Try deleting the file: 'fileB'" ) unless
     ok( not (-e 'fileB'), "fileB does not already exist." );
 $tmp = file 'fileB', 'touch fileB';
 ok( runtask( 'fileB' ) || 1, "fileB task does not die" );
 ok( -e 'fileB', "fileB was created" );
-ok( $tmp->{ ran }, "fileB has run." );
+ok( $tmp->ran, "fileB has run." );
 $tmp->{ ran } = undef;
-is( runtask( 'fileB' ) , "fileB is up to date\n", "fileB already created" );
+is( runtask( 'fileB' ) , "Task fileB Has already been run.", "fileB already created" );
 unlink( 'fileB' );
 
 ok( $tmp = group( 'Mygroup', 'a', 'b' ), "group works" );
 is_deeply(
     $tmp,
     {
-        depends => [ qw/ a b /],
-        name => 'Mygroup'
+        deps => [ qw/ a b /],
+        name => 'Mygroup',
+        flags => {},
+        code => undef,
     },
     "Mygroup is right."
 );
 
 $tmp = task 'Hi', sub { return 'Hi' };
 is( runtask( 'Hi' ), 'Hi', "task runs the first time." );
-is( runtask( 'Hi' ), undef, "task does not run the second time." );
+is( runtask( 'Hi' ), 'Task Hi Has already been run.', "task does not run the second time." );
 is( runtask( 'Hi', 1 ), 'Hi', "task forced to run again" );
 
 dies_ok { runtask( 'Faketask' ) } "Cannot run non-existant task";

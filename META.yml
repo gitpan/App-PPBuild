@@ -1,5 +1,5 @@
 ---
-abstract: 'Perl Project Build System'
+abstract: 'Perl Project Build System, The low-learnign curve simple build system.'
 author:
   - 'Chad Granum <exodist7@gmail.com>'
 build_requires:
@@ -15,4 +15,4 @@ no_index:
   directory:
     - inc
     - t
-version: 0.04
+version: 0.05

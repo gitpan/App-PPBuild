@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-App::PPBuild - Perl Project Build System
+App::PPBuild - Perl Project Build System, The low-learnign curve simple build system.
 
 =head1 DESCRIPTION
 
@@ -20,6 +20,11 @@ Some tasks are just simpler to write as shell commands. Doing this in PPBuild is
 just as easy as in make. In fact, shell tasks are easier since there is no need
 to put a tab before each command. As well all the commands in the rule run in
 the same shell session.
+
+One of the primary goals is to have a small learning curve. You should not have
+to weed through miles of documentation searching for the small subset of
+features you need. At the same time PPBuild is meant to be easily expandable,
+so if you need a lot of extra functionality it is there.
 
 =head1 SYNOPSIS
 
@@ -90,15 +95,18 @@ the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
 our @EXPORT_OK = qw/ runtask tasklist /;
 
-my %tasks;
-my %descriptions;
+use App::PPBuild::Task;
+use App::PPBuild::Task::File;
+use Carp;
+
+my %TASKS;
+my %DESCRIPTIONS;
 
 =item describe()
 
@@ -114,8 +122,8 @@ Exported by default.
 
 sub describe {
     my ( $name, $description ) = @_;
-    $descriptions{ $name } = $description if $description;
-    return $descriptions{ $name };
+    $DESCRIPTIONS{ $name } = $description if $description;
+    return $DESCRIPTIONS{ $name };
 }
 
 =item task()
@@ -140,14 +148,14 @@ sub task {
     return 0 unless $name;
     my $code = pop;
 
-    my ($depends, %flags) = _parse_flags(@_);
+    my ($depends, $flags) = _parse_flags(@_);
 
-    _addtask(
+    addtask( App::PPBuild::Task->new(
         name => $name,
         code => $code,
-        depends => $depends,
-        %flags,
-    );
+        deps => $depends,
+        flags => $flags,
+    ));
 }
 
 =item file()
@@ -164,15 +172,14 @@ sub file {
     return 0 unless $name;
     my $code = pop;
 
-    my ($depends, %flags) = _parse_flags(@_);
+    my ($depends, $flags) = _parse_flags(@_);
 
-    _addtask(
+    addtask( App::PPBuild::Task::File->new(
         name => $name,
-        file => $name,
         code => $code,
-        depends => $depends,
-        %flags,
-    );
+        deps => $depends,
+        flags => $flags,
+    ));
 }
 
 =item group()
@@ -186,15 +193,7 @@ Exported by default.
 =cut
 
 sub group {
-    my $name = shift;
-    return 0 unless $name;
-
-    my ($depends, %flags) = _parse_flags(@_);
-
-    _addtask(
-        name => $name,
-        depends => $depends,
-    );
+    task @_, undef; #undef as last argument, aka undef as code.
 }
 
 =item runtask()
@@ -212,43 +211,12 @@ Not exported by default.
 sub runtask {
     my ( $name, $again ) = @_;
 
-    die( "No such task: $name\n" ) unless $tasks{ $name };
-
-    my $file = $tasks{ $name }->{ file };
-
-    # Unless we are told to run the task an additional time We want to return
-    # true if the task has been run, or the file to be created is done.
-    unless ( $tasks{ $name }{ again } || $again ) {
-        return if $tasks{ $name }->{ ran };
-        # This message should only be displayed if the rule was explicetly
-        # stated in the command line, not if it is depended on by the called
-        # Task. Thats why it is not stored anywhere.
-        return "$file is up to date\n" if ( $file and -e $file );
-    }
-
-    $tasks{ $name }->{ ran }++;
+    croak( "No task named '$name'.\n" ) unless $TASKS{ $name };
 
     # Run the Tasks this one depends on:
-    runtask( $_ ) for @{ $tasks{ $name }->{ depends }};
+    runtask( $_ ) for @{ $TASKS{ $name }->deplist };
 
-    # If the rule has no code assume it is a group, return true
-    return unless my $code = $tasks{ $name }->{ code };
-
-    my $exit;
-    my $ref = ref $code;
-    if ( $ref eq 'CODE' ) {
-        $exit = $code->();
-    }
-    elsif ( $ref ) {
-        die( "Unknown task code: '$ref' for task '$name'.\n" );
-    }
-    else { # Not a reference, shell 'script'
-        exit($? >> 8) if system( $code );
-    }
-
-    croak( "File '$file' does not exist after file Task!\n" ) if ( $file and not -e $file );
-
-    return $exit;
+    return $TASKS{ $name }->run( $again );
 }
 
 =item tasklist()
@@ -261,31 +229,29 @@ Returns a list of task names. Return is an array, not an arrayref.
 =cut
 
 sub tasklist {
-    return keys %tasks;
+    return keys %TASKS;
 }
 
 sub _parse_flags {
     my $depends = [ ];
-    my %flags;
+    my $flags = { };
 
     foreach my $dep (@_) {
-        if ($dep =~ /^:([^:]+):$/) {
-            $flags{$1} = 1;
+        if ( $dep =~ /^:([^:]+):$/ ) {
+            $flags->{ $1 } = 1;
         } else {
             push @$depends, $dep;
         }
     }
 
-    return ($depends, %flags);
+    return ($depends, $flags);
 }
 
-sub _addtask {
-    my %params = @_;
-    my $name = $params{ name };
-
-    croak( "Task '$name' has already been defined!\n" ) if $tasks{ $name };
-
-    $tasks{ $name } = { %params };
+sub addtask {
+    my $task = shift;
+    my $name = $task->name;
+    croak( "Task '$name' has already been defined!\n" ) if $TASKS{ $name };
+    $TASKS{ $name } = $task;
 }
 
 1;
@@ -293,6 +259,19 @@ sub _addtask {
 __END__
 
 =back
+
+=head1 EXTENSIONS
+
+One of the goals of PPBuild is to be very simple with a small learning curve.
+Thus additional functionality should be done as extensions. We do not want to
+clutter PPBuild with a lot of extra functionality to get in the way.
+
+Creating an extension for PPBuild is easy:
+ * Create any new Task types you want as modules that use App::PPBuild::Task as a base.
+   - See the POD for App::PPBuild for a list of available hooks and methods.
+ * Create a module that uses App::PPBuild, and exports new functions similar to task() and file().
+   - The exported functions should build instances of your custom task types,
+   then add them to the list using addtask().
 
 =head1 AUTHOR
 

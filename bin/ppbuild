@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-# If there is a ppbuild dir present then add it to @INC so the .ppb file can
+# If there is a ppbuild dir present then add it to @INC so the PPBuild file can
 # access its support files.
 use lib "App::PPBuild";
 
@@ -24,7 +24,7 @@ Usage: $0 [OPTIONS] Task1, Task2, ...
 Options:
     --tasks | -t    Show a list of tasks
     --help  | -h    Show this message
-    --file  | -f    Specify the .ppb file to use (Defaults to PPBFile)
+    --file  | -f    Specify the PPBuild file to use (Defaults to PPBFile)
 
 $0 is used to build a perl project.
 
@@ -53,7 +53,7 @@ die( "No Tasks specified!\n" ) unless @ARGV;
 
 for ( @ARGV ){
     my $out = runtask( $_ );
-    print $out if $out and $out !~ m/^\d+$/; #Do not print the default return of 1
+    print "$out\n" if $out and $out !~ m/^\d+$/; #Do not print the default return of 1
 }
 print "\n";
 

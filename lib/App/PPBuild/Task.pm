@@ -103,7 +103,7 @@ sub run {
 
 =item deplist
 
-returns a list of tasks depended on by this task.
+Returns a list of tasks depended on by this task.
 
 =cut
 
@@ -125,7 +125,7 @@ sub ran {
 
 =item flag()
 
-returns the value of the specified flag.
+Returns the value of the specified flag.
 
 =cut
 
@@ -137,7 +137,7 @@ sub flag {
 
 =item flaglist()
 
-returns the list of flags.
+Returns the list of flags.
 
 =cut
 

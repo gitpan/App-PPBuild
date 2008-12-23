@@ -12,7 +12,7 @@ App::PPBuild - Perl Project Build System, The low-learning curve simple build sy
 =head1 DESCRIPTION
 
 Replacement for make on large perl projects. Similar to rake in concept, but no
-need to install and learn Ruby. The goal is to have a similar sytax to make
+need to install and learn Ruby. The goal is to have a similar syntax to make
 when defining tasks (or rules in make), while bringing in the power of being
 able to write your rules in perl.
 
@@ -47,15 +47,19 @@ complicated Makefile.
 The best way to explain what PPBuild is for is an example project.
 
 You have a project based on someone else's program. This program takes modules
-as extensions, as such you are writing several such modules. You need to create
-migrations to bring people from old versions to new ones. All your extension
+as extensions, as such you are writing several such modules. All your extension
 modules are under active development, as such installing them each time you
-change them is not worth it. You are keepign track of each module, as well as
+change them is not an options. You are keeping track of each module, as well as
 vendor modules and the vendor branch of the base program in seperate locations
-under one root directory. You may have many versions of a database that might
-need to be loaded, dropped or backed up at various times. And finally, you need
-to create an intelligent system to deploy this massive mess, both to fresh
-systems, and systems with a previous installation.
+under one root directory.
+
+You need to create migrations to bring people from old versions to new ones.
+You may have many versions of a database that might need to be loaded, dropped
+or backed up at various times.
+
+And finally, you need to create an intelligent system to deploy this massive
+mess. You may be deploying new installs on virgin systems. You might be
+upgrading an existing deployment.
 
 Obviously Module::Install should be used on each module you are using. As well
 the base program probably has its own deployment system you can work with.
@@ -70,20 +74,20 @@ At this point you have a few options:
 
 You can write a series of Makefiles, which is how many of these projects start.
 Once a perl project of this nature gets to a given size though you begin to
-need a PHD in Makefiles.
+need a PHD in make.
 
 =item External Utilities
 
-You can use a non-perl tool such as Rake. Rake is nice, but it requires
+You can use a non-perl tool such as rake. Rake is nice, but it requires
 learning ruby. As well you need to have ruby installed on any system you want
 to use the project on. Requiring ruby for a perl project is silly.
 
 =item Module::Install::YourExtension
 
 You can extend Module::Install, but the name says it all, it is intended for
-modules. As well the ultimate output is a makefile, so even though you are not
+modules. As well the ultimate output is a Makefile, so even though you are not
 directly writing a Makefile you still need to worry about make and all it's
-deficiencies.
+baggage.
 
 =item Roll Your Own
 
@@ -94,7 +98,7 @@ have several projects of this nature, wouldn't something reusable be nice?
 
 You can use PPBuild. Use PPBuild instead of a Makefile, the syntax is similar,
 but you can write your rules, or tasks as PPBuild calls them, in pure perl, or
-as shell commands. It is a lot like Rake in that it replaces make, but you do
+as shell commands. It is a lot like rake in that it replaces make, but you do
 not need to deal with ruby. It is reusable. It is designed for perl projects.
 
 =back
@@ -143,20 +147,21 @@ To use it:
 
 The ppbuild script uses a PPBFile file to build a project. This is similar to make
 and Makefiles. PPBFiles are pure perl files. To define a task use the Task,
-Group, or file functions. Give a task a desription using the describe function.
+Group, or file functions. Give a task a description using the describe function.
 
 The first argument to any task creation function is the name of the task. The
 last argument is usually the code to run. All arguments in the middle should be
-names of tasks that need to run first. The code argument can be a string, or a
-perl sub. If the code is a sub it will be run when the task is run. If the code
-is a string it will be passed to the shell using system().
+names of tasks that need to run first or flags denoted by ':flag:'. The code
+argument can be a string, or a perl sub. If the code is a sub it will be run
+when the task is run. If the code is a string it will be passed to the shell
+using system().
 
-The ppbuild script automatically adds PPBuild to the library search path. If you
-wish to write build system specific support files you can place them in a PPBuild
-directory and not need to manually call perl -I PPBuild, or add use lib 'PPBuild'
-yourself in your PPBFile. As well if you will be sharing the codebase with
-others, and do not want to add PPBuild as a requirement you can copy PPBuild.pm into
-the PPBuild directory in the project.
+The ppbuild script automatically adds PPBuild to the library search path. If
+you wish to write build system specific support files you can place them in a
+PPBuild directory and not need to manually call perl -I PPBuild, or add use lib
+'PPBuild' yourself in your PPBFile. As well if you will be sharing the codebase
+with others, and do not want to add PPBuild as a requirement you can copy
+PPBuild.pm into the PPBuild directory in the project.
 
 =head1 FUNCTIONS
 
@@ -168,7 +173,7 @@ the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;

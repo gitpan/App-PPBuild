@@ -129,6 +129,7 @@ PPBFile:
     group "MyGroup", qw/ MyTask MyTask2 MyTask3 MyFile /;
 
 To use it:
+
     $ ppbuild MyTask
 
     $ ppbuild MyGroup
@@ -173,7 +174,7 @@ PPBuild.pm into the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.08';
+$VERSION = '0.09';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;

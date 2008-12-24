@@ -44,6 +44,7 @@ you have to use ppbuild, but need make to work.
 =head1 SYNOPSIS
 
 example/Makefile.PL:
+
     use App::PPBuild::Makefile;
 
     # Load the PPBFile

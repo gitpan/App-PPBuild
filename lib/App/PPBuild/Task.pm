@@ -123,6 +123,12 @@ sub ran {
     return $self->{ ran };
 }
 
+sub _set_ran {
+    my $self = shift;
+    $self->{ ran } = shift if @_;
+    return $self->{ ran };
+}
+
 =item flag()
 
 Returns the value of the specified flag.

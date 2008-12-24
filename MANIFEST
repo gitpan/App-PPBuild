@@ -1,4 +1,5 @@
 bin/ppbuild
+example/Makefile.PL
 example/PPBFile
 gpl.txt
 inc/Module/Install.pm
@@ -10,6 +11,7 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/App/PPBuild.pm
+lib/App/PPBuild/Makefile.pm
 lib/App/PPBuild/Task.pm
 lib/App/PPBuild/Task/File.pm
 Makefile.PL
@@ -19,3 +21,9 @@ README
 t/000-ppbuild.t
 t/001-Task.t
 t/002-File.t
+t/003-Makefile.t
+t/004-Sessions.t
+t/res/Makefile.wantA
+t/res/Makefile.wantB
+t/res/PPBFile
+t/res/session.yaml

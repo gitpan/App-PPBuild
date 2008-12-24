@@ -1,0 +1,6 @@
+use strict;
+use warnings;
+use App::PPBuild;
+
+task 'TaskA', sub { 1 };
+task 'TaskB', sub { 2 };

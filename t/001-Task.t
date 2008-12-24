@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 16;
+use Test::More tests => 20;
 use Test::Exception;
 
 use vars qw/ $one $tmp $CLASS /;
@@ -37,3 +37,8 @@ is( ref $one->code, 'CODE', "Code is a coderef" );
 is( $one->name, 'TaskA', "Name is set" );
 
 dies_ok { $one->hook_run( [] ) } "hook_run dies in Task";
+
+ok( defined( $one->_set_ran( 0 )), "_set_ran works" );
+is( $one->ran, 0, "ran has been set to 0." );
+ok( $one->_set_ran( 6 ), "_set_ran" );
+is( $one->ran, 6, "ran has been set to 6." );

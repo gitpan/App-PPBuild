@@ -24,7 +24,7 @@ file "test2.file", sub {
     close( $file );
 };
 
-describe "Runs Hi, Bye, test.file, and test2.file";
+describe "all", "Runs Hi, Bye, test.file, and test2.file";
 group "all", "Hi", "Bye", "test.file", "test2.file";
 
 1;

@@ -1,0 +1,14 @@
+ppb_default: tasks
+
+ppb_tasks:
+	@ppbuild --tasks
+
+ppb_clear_session:
+	@rm -f .session
+
+ppb_TaskA: ppb_clear_session
+	@ppbuild --session .session TaskA
+
+ppb_TaskB: ppb_clear_session
+	@ppbuild --session .session TaskB
+

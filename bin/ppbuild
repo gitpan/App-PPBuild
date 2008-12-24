@@ -6,15 +6,18 @@ use warnings;
 # access its support files.
 use lib "App::PPBuild";
 
-use App::PPBuild qw/ runtask tasklist describe /;
+use App::PPBuild qw/ runtask tasklist describe session write_session /;
 
-use vars qw/ $tasks $file /;
+use vars qw/ $tasks $file $session $quiet $again /;
 
 use Getopt::Long;
 GetOptions(
     "tasks"     => \$tasks,
     "help"      => \&help,
     "file:s"    => \$file,
+    "session:s" => \$session,
+    "quiet"     => \$quiet,
+    "again"     => \$again,
 );
 
 sub help {
@@ -22,9 +25,14 @@ sub help {
 Usage: $0 [OPTIONS] Task1, Task2, ...
 
 Options:
-    --tasks | -t    Show a list of tasks
-    --help  | -h    Show this message
-    --file  | -f    Specify the PPBuild file to use (Defaults to PPBFile)
+    --tasks   | -t  Show a list of tasks
+    --help    | -h  Show this message
+    --file    | -f  Specify the PPBuild file to use (Defaults to PPBFile)
+    --session | -s  Specify a session file to track which tasks have been run
+                    across multiple ppbuild executions.
+    --quiet   | -q  Quiet, as in do not print messages each task returns.
+                    Messages generated while tasks run will still be displayed.
+    --again   | -a  Force the specified tasks to run again.
 
 $0 is used to build a perl project.
 
@@ -51,9 +59,15 @@ if ( $tasks ){
 
 die( "No Tasks specified!\n" ) unless @ARGV;
 
+session( $session ) if $session and -e $session;
+
 for ( @ARGV ){
-    my $out = runtask( $_ );
-    print "$out\n" if $out and $out !~ m/^\d+$/; #Do not print the default return of 1
+    my $out = runtask( $_, $again );
+    print "$out\n" if $out and $out !~ m/^\d+$/ and not $quiet; #Do not print the default return of 1
 }
 print "\n";
+
+END {
+    write_session( $session ) if $session;
+}
 

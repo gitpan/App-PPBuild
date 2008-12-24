@@ -173,18 +173,20 @@ PPBuild.pm into the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
-our @EXPORT_OK = qw/ runtask tasklist /;
+our @EXPORT_OK = qw/ runtask tasklist session write_session /;
 
 use App::PPBuild::Task;
 use App::PPBuild::Task::File;
 use Carp;
+use YAML::Syck qw//;
 
 my %TASKS;
 my %DESCRIPTIONS;
+my $SESSION = {};
 
 =item describe()
 
@@ -310,6 +312,61 @@ sub tasklist {
     return keys %TASKS;
 }
 
+=item addtask()
+
+Add a task to the list of available tasks.
+
+    addtask( $task_ref, $task_name );
+    addtask( PPBuild::Task->new( name => 't', ... ), 't' );
+
+=cut
+
+sub addtask {
+    my $task = shift;
+    my $name = $task->name;
+    croak( "Task '$name' has already been defined!\n" ) if $TASKS{ $name };
+    $task->_set_ran( $SESSION->{ $name } || 0 );
+    $TASKS{ $name } = $task;
+}
+
+=item session()
+
+Specify a session file to use. Sessions store how many times each task has been
+run. Use a session if you are scripting the use of ppbuild and want to ensure
+task run counts are preserved between executions of ppbuild.
+
+    session '.session';
+    session( 'session.yaml' );
+
+=cut
+
+sub session {
+    my $sessionfile = shift;
+    $SESSION = YAML::Syck::LoadFile( $sessionfile ) || die( "Cannot open session file: $!\n" );
+
+    for my $task ( values %TASKS ) {
+        $task->_set_ran( $SESSION->{ $task->name } || 0 );
+    }
+}
+
+=item write_session()
+
+Write the current run counts to a session file.
+
+    write_session '.session';
+    write_session( 'session.yaml' );
+
+=cut
+
+sub write_session {
+    my $sessionfile = shift;
+    my $out = {};
+    for my $task ( values %TASKS ) {
+        $out->{ $task->name } = $task->ran;
+    }
+    YAML::Syck::DumpFile( $sessionfile, $out );
+}
+
 sub _parse_flags {
     my $depends = [ ];
     my $flags = { };
@@ -323,13 +380,6 @@ sub _parse_flags {
     }
 
     return ($depends, $flags);
-}
-
-sub addtask {
-    my $task = shift;
-    my $name = $task->name;
-    croak( "Task '$name' has already been defined!\n" ) if $TASKS{ $name };
-    $TASKS{ $name } = $task;
 }
 
 1;

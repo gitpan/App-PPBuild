@@ -45,6 +45,7 @@ is_deeply(
         name => 'Mygroup',
         flags => {},
         code => undef,
+        ran => 0,
     },
     "Mygroup is right."
 );
@@ -90,3 +91,5 @@ lives_ok { is(runtask('SetTmp3'), 'Tmp') };
 
 is($tmp, 'Tmp');
 ok(!$foo);
+
+

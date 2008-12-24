@@ -15,4 +15,7 @@ no_index:
   directory:
     - inc
     - t
-version: 0.07
+requires:
+  Exporter: 5.63
+  YAML::Syck: 1.05
+version: 0.08

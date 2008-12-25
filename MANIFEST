@@ -1,5 +1,7 @@
 bin/ppbuild
 example/Makefile.PL
+example/Module-Install/Makefile.PL
+example/Module-Install/PPBFile
 example/PPBFile
 gpl.txt
 inc/Module/Install.pm
@@ -14,6 +16,7 @@ lib/App/PPBuild.pm
 lib/App/PPBuild/Makefile.pm
 lib/App/PPBuild/Task.pm
 lib/App/PPBuild/Task/File.pm
+lib/Module/Install/PPBuild.pm
 Makefile.PL
 MANIFEST			This list of files
 META.yml
@@ -23,6 +26,7 @@ t/001-Task.t
 t/002-File.t
 t/003-Makefile.t
 t/004-Sessions.t
+t/005-ModuleInstall.t
 t/res/Makefile.wantA
 t/res/Makefile.wantB
 t/res/PPBFile

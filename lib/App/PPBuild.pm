@@ -42,6 +42,9 @@ and apps, however if you need to do something complicated you run into the
 'make' problem again when you extend Module::Install to write a more
 complicated Makefile.
 
+It is now possible to use PPBuild and Module::Install together. See the Pod for
+Module::Install::PPBuild.
+
 =head1 WHAT PPBUILD IS
 
 The best way to explain what PPBuild is for is an example project.
@@ -174,7 +177,7 @@ PPBuild.pm into the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.09';
+$VERSION = '0.10';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
@@ -414,6 +417,31 @@ task types, then add them to the list using addtask().
 
 After 'use App::PPBuild;' in the PPBuild file add 'use App::PPBuild::YourExt;'
 to bring in your own exported functions.
+
+=back
+
+=head1 SEE ALSO
+
+=over 4
+
+=item App::PPBuild::Task
+
+The base Task object. All tasks should inherit from this one.
+
+=item App::PPBuild::Task::File
+
+The File task object. Tasks that create a file use this object.
+
+=item App::PPBuild::Makefile
+
+Used in a Makefile.PL to generate a Makefile with rules for each PPBuild task.
+This does not do any kind of conversion, the makefile simply deligates to
+PPBuild.
+
+=item Module::Install::PPBuild
+
+A PPBuild extension for Module::Install. With this PPBuild and Module::Install
+can be used together.
 
 =back
 

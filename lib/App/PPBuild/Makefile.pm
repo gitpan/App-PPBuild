@@ -87,6 +87,7 @@ sub ppbfile {
 Writes out a Makefile that calls ppbuild tasks.
 
 Parameters: (All parameters are optional)
+
     write_makefile(
         file => 'Makefile',
         op   => '>', # Use >> to append the rules to the end of the makefile
@@ -104,15 +105,30 @@ sub write_makefile {
     my $prefix = $params{ prefix } || "";
 
     open( my $makefile, $op, $file ) || die( "Cannot open $file for writing: $!\n" );
-    print $makefile header( $prefix );
-    print $makefile rule( $_, $prefix ) for tasklist();
+    print $makefile all( %params );
     close( $makefile );
+}
+
+sub all {
+    my %params = @_;
+    my $prefix = $params{ prefix } || "";
+    my $out = header( $prefix ) . helpers( $prefix );
+    $out .= rule( $_, $prefix ) for tasklist();
+    return $out;
 }
 
 sub header {
     my ( $prefix ) = @_;
     return <<EOT;
+
 ${prefix}default: tasks
+
+EOT
+}
+
+sub helpers {
+    my ( $prefix ) = @_;
+    return <<EOT;
 
 ${prefix}tasks:
 \t\@ppbuild --tasks

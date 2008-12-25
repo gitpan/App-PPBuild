@@ -1,8 +1,11 @@
 bin/ppbuild
+example/.session
 example/Makefile.PL
+example/Module-Install/.session
 example/Module-Install/Makefile.PL
 example/Module-Install/PPBFile
 example/PPBFile
+example/test.file
 gpl.txt
 inc/Module/Install.pm
 inc/Module/Install/Base.pm

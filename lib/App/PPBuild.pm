@@ -167,7 +167,7 @@ PPBuild directory and not need to manually call perl -I PPBuild, or add use lib
 with others, and do not want to add PPBuild as a requirement you can copy
 PPBuild.pm into the PPBuild directory in the project.
 
-=head1 FUNCTIONS
+=head1 EXPORTED FUNCTIONS
 
 =over 4
 
@@ -177,11 +177,11 @@ PPBuild.pm into the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
-our @EXPORT_OK = qw/ runtask tasklist session write_session /;
+our @EXPORT_OK = qw/ runtask tasklist session write_session add_task /;
 
 use App::PPBuild::Task;
 use App::PPBuild::Task::File;
@@ -199,8 +199,6 @@ Used to add or retrieve a task description.
     describe( 'MyTask', 'Description' );
     describe 'MyTask', "Description";
     my $description = describe( 'MyTask' );
-
-Exported by default.
 
 =cut
 
@@ -223,8 +221,6 @@ Defines a task.
     # specified instead fo only once. Same as using runtask( 'task', 1 );
     task 'MyTask4', ':again:', qw/ ..Deps.. /, CODE;
 
-Exported by default.
-
 =cut
 
 sub task {
@@ -246,8 +242,6 @@ sub task {
 
 Specifies a file to be created. Will not run if file already exists. Syntax is
 identical to task().
-
-Exported by default.
 
 =cut
 
@@ -272,13 +266,17 @@ Group together several tasks as one new task. Tasks will run in specified
 order. Syntax is identical to task() except it *DOES NOT* take code as the last
 argument.
 
-Exported by default.
-
 =cut
 
 sub group {
     task @_, undef; #undef as last argument, aka undef as code.
 }
+
+=back
+
+=head1 IMPORTABLE FUNCTIONS
+
+=over 4
 
 =item runtask()
 
@@ -287,8 +285,6 @@ Run the specified task.
 First argument is the task to run.
 If the Second argument is true the task will be forced to run even if it has
 been run already.
-
-Not exported by default.
 
 =cut
 
@@ -370,6 +366,20 @@ sub write_session {
     }
     YAML::Syck::DumpFile( $sessionfile, $out );
 }
+
+=back
+
+=head1 PRIVATE FUNCTIONS
+
+=over 4
+
+=item _parse_flags()
+
+Used to parse flags and pull them out of the dependancy list.
+
+Flags are denoted by a colon on either side IE: ':flag:'.
+
+=cut
 
 sub _parse_flags {
     my $depends = [ ];

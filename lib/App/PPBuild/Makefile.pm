@@ -18,7 +18,7 @@ rules will have the same name as the PPBuild tasks, with an optional prefix.
 Each rule will simply call ppbuild and the specified task. Each call to ppbuild
 will specify .session as the session file, thus if you call make TaskA TaskA,
 TaskA will run only once. Each rule calls a clear_session rule, this way the
-session si cleared each time you call make.
+session is cleared each time you call make.
 
 The idea behind this is that most people are familar with make. You want your
 user to be able to download your project and use make as expected. As well many
@@ -38,6 +38,14 @@ This is still not a replacement for Module::Install. Module::Install does a LOT
 more than simply allow CPAN to test your work. As well Module::Install is able
 to install your module and do much more. This is simply here to help you when
 you have to use ppbuild, but need make to work.
+
+See Module::Install::PPBuild if you want to use PPBuild and Module::Install in
+conjunction. Module::Install::PPBuild uses this module to do most of the work.
+The benefit of using Module::Install::PPBuild over this module is the helpful
+rules such as manifest and dist that it creates for you. As well it will let
+you use the install and test rules from Module::Install, along with extra rules
+you define in PPBuild. If needed you can override Module::Install's default
+rules.
 
 =back
 
@@ -109,6 +117,18 @@ sub write_makefile {
     close( $makefile );
 }
 
+=back
+
+=head1 PRIVATE FUNCTIONS
+
+=over 4
+
+=item all()
+
+Returns a string containing all the makefile rules for the PPBuild tasks.
+
+=cut
+
 sub all {
     my %params = @_;
     my $prefix = $params{ prefix } || "";
@@ -116,6 +136,12 @@ sub all {
     $out .= rule( $_, $prefix ) for tasklist();
     return $out;
 }
+
+=item header()
+
+Returns a string for the default rule.
+
+=cut
 
 sub header {
     my ( $prefix ) = @_;
@@ -125,6 +151,12 @@ ${prefix}default: tasks
 
 EOT
 }
+
+=item helpers()
+
+Returns the rules for printing a task list, and clear_session.
+
+=cut
 
 sub helpers {
     my ( $prefix ) = @_;
@@ -138,6 +170,14 @@ ${prefix}clear_session:
 
 EOT
 }
+
+=item rule()
+
+Takes a task name and a prefix.
+
+Returns a makefile rule defenition (string) for the PPBuild task.
+
+=cut
 
 sub rule {
     my ( $name, $prefix ) = @_;

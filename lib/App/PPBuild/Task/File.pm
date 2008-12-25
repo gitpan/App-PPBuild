@@ -24,12 +24,22 @@ Used for tasks that create a file.
         flags => { %flags },
     );
 
+=head1 METHODS
+
+=over 4
+
 =cut
 
 #}}}
 
 use base 'App::PPBuild::Task';
 use Carp;
+
+=item hook_completed()
+
+Use hook_completed to verify a file with the name of the task exists.
+
+=cut
 
 sub hook_completed {
     my $self = shift;
@@ -40,6 +50,12 @@ sub hook_completed {
     }
 }
 
+=item ran()
+
+Override ran() to return true (1) if a file with the name of th task exisits.
+
+=cut
+
 sub ran {
     my $self = shift;
     return 1 if ( -e $self->name );
@@ -49,6 +65,8 @@ sub ran {
 1;
 
 __END__
+
+=back
 
 =head1 AUTHOR
 

@@ -34,6 +34,14 @@ Makefile.PL:
     # Like any Module::Install Makefile.PL.
     WriteAll;
 
+=head1 HOW IT WORKS
+
+Module::Install uses ExtUtils::MakeMaker to do most of the work. This module
+makes use of the sub MY::[FUNCTION] {} system to override specified MakeMaker
+rules replacing them with rules from App::PPBuild::Makefile. It also Adds all
+the PPBuild tasks as makefile rules with the ppbuild_ prefix. This is done
+using the MY::postamble() method.
+
 =head1 EXPORTED FUNCTIONS
 
 =over 4
@@ -105,7 +113,7 @@ EOT
 
 =back
 
-=head1 EXPORTED FUNCTIONS
+=head1 PRIVATE FUNCTIONS
 
 =over 4
 

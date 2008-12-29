@@ -8,14 +8,14 @@ task "Hi", 'test.file', sub {
 };
 
 describe "Bye", "Prints 'Bye' using the shell";
-task "Bye", "Hi", <<EOT;
+task "Bye", "Hi", <<SHELL;
 echo "Bye!"
-EOT
+SHELL
 
 describe "test.file", "Creates the 'test.file' file using shell";
-file "test.file", <<EOT;
+file "test.file", <<SHELL;
     touch test.file
-EOT
+SHELL
 
 describe "test2.file", "Creates the 'test2.file' file using perl";
 file "test2.file", sub {

@@ -2,11 +2,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 41;
+use Test::More tests => 54;
 use Test::Exception;
 
 use_ok( 'App::PPBuild' );
-use App::PPBuild qw/ describe task file group runtask tasklist /;
+use App::PPBuild qw/ describe task file group runtask tasklist parse_params /;
 
 use vars qw/ $tmp /;
 
@@ -92,4 +92,49 @@ lives_ok { is(runtask('SetTmp3'), 'Tmp') };
 is($tmp, 'Tmp');
 ok(!$foo);
 
+$tmp = task 'NewFlagsA', 'DepA', [ 'SomeFlag', 'Another flag' ], 'DepB', [ 'YANF' ], 'DepC', "shell code";
+ok(( grep { $_ eq 'SomeFlag' } @{ $tmp->flaglist }), "Found the flag" );
+ok(( grep { $_ eq 'Another flag' } @{ $tmp->flaglist }), "Found the flag" );
+ok(( grep { $_ eq 'YANF' } @{ $tmp->flaglist }), "Found the flag" );
+ok(( grep { $_ eq 'DepA' } @{ $tmp->deplist }), "Found the dep" );
+ok(( grep { $_ eq 'DepB' } @{ $tmp->deplist }), "Found the dep" );
+ok(( grep { $_ eq 'DepC' } @{ $tmp->deplist }), "Found the dep" );
 
+$tmp = task {
+    name => 'ByHash',
+    code => 'shell code',
+    deps => [ 'Deps' ],
+    flags => { 'Flags' => 1 },
+};
+
+is( $tmp->name, 'ByHash', 'Got name' );
+is( $tmp->code, "shell code", "Got code" );
+is_deeply( $tmp->deplist, [ 'Deps' ], "Got deps" );
+is_deeply( $tmp->flaglist, [ 'Flags' ], "Got flags" );
+
+dies_ok { parse_params({}) } "Dies w/o a name";
+is_deeply(
+    parse_params({ name => 'bob' }),
+    {
+        name => 'bob',
+        deps => [],
+        flags => {},
+    },
+    "Only name is required"
+);
+
+is_deeply(
+    parse_params( 'bob', 'depA', [ 'flagA', 'flagB' ], 'depB', [ 'flagC' ], 'depC', ':flagD:', "code" ),
+    {
+        name => 'bob',
+        deps => [ qw/ depA depB depC /],
+        flags => {
+            flagA => 1,
+            flagB => 1,
+            flagC => 1,
+            flagD => 1,
+        },
+        code => 'code',
+    },
+    "Parsing complicated defenition"
+);

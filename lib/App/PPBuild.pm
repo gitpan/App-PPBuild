@@ -112,16 +112,19 @@ PPBFile:
 
     use App::PPBuild; #This is required.
 
+    # Describe the task 'MyTask'
     describe "MyTask", "Completes the first task";
-    task "MyTask", "Dependency task 1", "Dep task 2", ..., sub {
+
+    # Define the task 'MyTask'
+    task "MyTask", "Dependancy task 1", "Dep task 2", ..., sub {
         ... Perl code to Complete the task ...
     };
 
     describe "MyTask2", "Completes MyTask2";
-    task "MyTask2", qw/ MyTask /, <<EOT;
+    task "MyTask2", qw/ MyTask /, <<SHELL;
         echo "Task: MyTask2"
         ... Other shell commands ...
-    EOT
+    SHELL
 
     task "MyTask3", qw/ MyTask MyTask2 / , "Shell commands";
 
@@ -130,6 +133,14 @@ PPBFile:
 
     describe "MyGroup", "Runs all the tasks";
     group "MyGroup", qw/ MyTask MyTask2 MyTask3 MyFile /;
+
+    # You can also define a task in a named parameter style using a hash:
+    task {
+        name => 'A Task',
+        code => sub { ... }, # Or "shell code"
+        deps => [ 'MyTask', 'MyTask2' ],
+        flags => FLAGS
+    };
 
 To use it:
 
@@ -177,16 +188,17 @@ PPBuild.pm into the PPBuild directory in the project.
 
 package App::PPBuild;
 use vars qw($VERSION);
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use Exporter 'import';
 our @EXPORT = qw/ task file group describe /;
-our @EXPORT_OK = qw/ runtask tasklist session write_session add_task /;
+our @EXPORT_OK = qw/ runtask tasklist session write_session add_task parse_params /;
 
 use App::PPBuild::Task;
 use App::PPBuild::Task::File;
 use Carp;
 use YAML::Syck qw//;
+use Data::Dumper;
 
 my %TASKS;
 my %DESCRIPTIONS;
@@ -214,28 +226,29 @@ Defines a task.
 
     task 'MyTask1', qw/ Dependancy /, "Shell Code";
     task 'MyTask2', sub { ..Perl Code... };
-    task 'MyTask3', <<EOT;
+    task 'MyTask3', <<SHELL;
     ...Lots of shell commands...
-    EOT
-    # Specify the :again: flag to force the task to run every time it is
-    # specified instead fo only once. Same as using runtask( 'task', 1 );
-    task 'MyTask4', ':again:', qw/ ..Deps.. /, CODE;
+    SHELL
+
+You can specify flags using array_refs at any point in the dependancy list.
+See the FLAGS section for more details.
+
+    task 'MyTask4', 'DepA', 'DebB', [ 'FlagA', 'FlagB' ], qw/ ..More Deps.. /, CODE;
+
+You can also use a hash to define a task in a named parameter style.
+
+    task {
+        name => NAME,
+        code => CODE,
+        deps => DEPS,
+        flags => FLAGS,
+    };
 
 =cut
 
 sub task {
-    my $name = shift;
-    return 0 unless $name;
-    my $code = pop;
-
-    my ($depends, $flags) = _parse_flags(@_);
-
-    addtask( App::PPBuild::Task->new(
-        name => $name,
-        code => $code,
-        deps => $depends,
-        flags => $flags,
-    ));
+    my $params = parse_params( @_ );
+    addtask( App::PPBuild::Task->new( %$params ));
 }
 
 =item file()
@@ -246,18 +259,8 @@ identical to task().
 =cut
 
 sub file {
-    my $name = shift;
-    return 0 unless $name;
-    my $code = pop;
-
-    my ($depends, $flags) = _parse_flags(@_);
-
-    addtask( App::PPBuild::Task::File->new(
-        name => $name,
-        code => $code,
-        deps => $depends,
-        flags => $flags,
-    ));
+    my $params = parse_params( @_ );
+    addtask( App::PPBuild::Task::File->new( %$params ));
 }
 
 =item group()
@@ -367,38 +370,90 @@ sub write_session {
     YAML::Syck::DumpFile( $sessionfile, $out );
 }
 
-=back
+=item parse_params()
 
-=head1 PRIVATE FUNCTIONS
+Parses the standard task defenition parameters.
 
-=over 4
+Returns:
 
-=item _parse_flags()
+    return {
+        name => NAME,
+        code => CODE,
+        deps => DEPENDENCIES,
+        flags => FLAG LIST,
+    };
 
-Used to parse flags and pull them out of the dependancy list.
-
-Flags are denoted by a colon on either side IE: ':flag:'.
+If the first argument is a hash, the hash will be returned, no other parameters
+will be parsed. Otherwise the first param will be the task name, the last will
+be the code, the arrayrefs will be treated as flag lists, and the strings will
+be used as dependancies.
 
 =cut
 
-sub _parse_flags {
-    my $depends = [ ];
-    my $flags = { };
+sub parse_params {
+    my $params = [ @_ ];
 
-    foreach my $dep (@_) {
-        if ( $dep =~ /^:([^:]+):$/ ) {
+    my $name = shift( @$params );
+    return unless $name;
+
+    # If the first param is a hash then the task is defiend with named parameters.
+    if ( ref $name eq 'HASH' ) {
+        croak( Dumper( \@_ ) . "Task name not provided in hash!\n" ) unless $name->{ name };
+        warn( "Warning: Ignoring parameters after hash in task defenition '" . $name->{ name } . "'\n" ) if @$params;
+        return {
+            deps => [],
+            flags => {},
+            %$name
+        };
+    }
+
+    my $code = pop( @$params );
+    my $deps = [];
+    my $flags = {};
+
+    for my $item ( @$params ) {
+        if ( ref $item eq 'ARRAY' ) {
+            $flags->{ $_ } = 1 for @$item;
+        }
+        elsif ( $item =~ /^:([^:]+):$/ ) {
+            warn( "Specifying flags with :flag: is deprecated and will be removed in the future.\n" );
             $flags->{ $1 } = 1;
-        } else {
-            push @$depends, $dep;
+        }
+        else {
+            push @$deps => $item;
         }
     }
 
-    return ($depends, $flags);
+    return {
+        name => $name,
+        code => $code,
+        deps => $deps,
+        flags => $flags,
+    };
 }
 
 1;
 
 __END__
+
+=back
+
+=head1 FLAGS
+
+Flags are used to specify special behavior. You can specify flags using arrayrefs in the dependancy list.
+
+    task 'MyTask4', 'DepA', 'DebB', [ 'FlagA', 'FlagB' ], qw/ ..More Deps.. /, CODE;
+
+The following flags are available for use:
+
+=over 4
+
+=item always
+
+the always flag is used to speicfy that the task shoudl always run when called.
+This means every time it is listed as a dependancy, and every time it is listed
+at the command prompt. It will run each time regardless of how many times it
+has already run.
 
 =back
 

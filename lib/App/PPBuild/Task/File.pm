@@ -74,7 +74,7 @@ Chad Granum E<lt>exodist7@gmail.comE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2008 Chad Granum
+Copyright 2009 Chad Granum
 
 licensed under the GPL version 3.
 You should have received a copy of the GNU General Public License

@@ -4,70 +4,9 @@ use warnings;
 
 # If there is a ppbuild dir present then add it to @INC so the PPBuild file can
 # access its support files.
-use lib "App::PPBuild";
+use lib qw/ PPBuild inc /;
 
-use App::PPBuild qw/ runtask tasklist describe session write_session /;
+use App::PPBuild;
+use App::PPBuild::CUI;
 
-use vars qw/ $tasks $file $session $quiet $again /;
-
-use Getopt::Long;
-GetOptions(
-    "tasks"     => \$tasks,
-    "help"      => \&help,
-    "file:s"    => \$file,
-    "session:s" => \$session,
-    "quiet"     => \$quiet,
-    "again"     => \$again,
-);
-
-sub help {
-    print <<EOT;
-Usage: $0 [OPTIONS] Task1, Task2, ...
-
-Options:
-    --tasks   | -t  Show a list of tasks
-    --help    | -h  Show this message
-    --file    | -f  Specify the PPBuild file to use (Defaults to PPBFile)
-    --session | -s  Specify a session file to track which tasks have been run
-                    across multiple ppbuild executions.
-    --quiet   | -q  Quiet, as in do not print messages each task returns.
-                    Messages generated while tasks run will still be displayed.
-    --again   | -a  Force the specified tasks to run again.
-
-$0 is used to build a perl project.
-
-EOT
-    exit( 0 );
-}
-
-$file ||= "PPBFile";
-require $file;
-
-if ( $tasks ){
-    print "Available Tasks:\n";
-    my $length = 0;
-    for my $task ( tasklist() ) {
-        my $this = length( $task );
-        $length = $this if $this > $length;
-    }
-    for my $task ( sort( tasklist() )) {
-        printf( " %-${length}s - \%s\n", $task, describe( $task ) || "" );
-    }
-    print "\n";
-    exit( 0 );
-}
-
-die( "No Tasks specified!\n" ) unless @ARGV;
-
-session( $session ) if $session and -e $session;
-
-for ( @ARGV ){
-    my $out = runtask( $_, $again );
-    print "$out\n" if $out and $out !~ m/^\d+$/ and not $quiet; #Do not print the default return of 1
-}
-print "\n";
-
-END {
-    write_session( $session ) if $session;
-}
-
+App::PPBuild::CUI->new->run( 'PPBFile' );

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 20;
+use Test::More tests => 22;
 use Test::Exception;
 
 use vars qw/ $one $tmp $CLASS /;
@@ -42,3 +42,14 @@ ok( defined( $one->_set_ran( 0 )), "_set_ran works" );
 is( $one->ran, 0, "ran has been set to 0." );
 ok( $one->_set_ran( 6 ), "_set_ran" );
 is( $one->ran, 6, "ran has been set to 6." );
+
+is( $one->description, "No Description", "Default description is 'No Description'" );
+
+$one = $CLASS->new(
+    name => 'TaskA',
+    deps => [ 'a', 'b' ],
+    code => sub { 1 },
+    description => 'Blah',
+);
+
+is( $one->description, "Blah", "Can provide a description." );

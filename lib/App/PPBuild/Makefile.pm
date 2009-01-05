@@ -75,7 +75,7 @@ our @EXPORT = qw/ ppbfile write_makefile /;
 
 # If there is a ppbuild dir present then add it to @INC so the PPBuild file can
 # access its support files.
-use lib "App::PPBuild";
+use lib "PPBuild";
 
 use App::PPBuild qw/ runtask tasklist describe session write_session /;
 
@@ -198,7 +198,7 @@ Chad Granum E<lt>exodist7@gmail.comE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2008 Chad Granum
+Copyright 2009 Chad Granum
 
 licensed under the GPL version 3.
 You should have received a copy of the GNU General Public License

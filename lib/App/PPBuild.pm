@@ -110,37 +110,45 @@ not need to deal with ruby. It is reusable. It is designed for perl projects.
 
 PPBFile:
 
-    use App::PPBuild; #This is required.
+    #!/usr/bin/perl       #Only needed if you want to run the PPBFile directly, but always a good idea.
 
-    # Describe the task 'MyTask'
-    describe "MyTask", "Completes the first task";
+    use inc::App::PPBuild #If you DO want to include a copy of App::PPBuild with your distribution.
+    # *** OR ***
+    use App::PPBuild;     #If you DO NOT want to include a copy of App::PPBuild with your distribution.
 
     # Define the task 'MyTask'
-    task "MyTask", "Dependancy task 1", "Dep task 2", ..., sub {
+    task "MyTask", [ "Dependancy task 1", "Dep task 2", ... ], "Task named MyTask, run perl code.", sub {
         ... Perl code to Complete the task ...
     };
 
-    describe "MyTask2", "Completes MyTask2";
-    task "MyTask2", qw/ MyTask /, <<SHELL;
+    # Task name and code are the only required arguments.
+    task "MyTask2", <<SHELL;
         echo "Task: MyTask2"
         ... Other shell commands ...
     SHELL
 
-    task "MyTask3", qw/ MyTask MyTask2 / , "Shell commands";
+    task "MyTask3", [qw/ MyTask MyTask2 /], "MyTask3 runs shell commands", "Shell commands";
 
-    describe "MyFile", "Creates file 'MyFile'";
-    file "MyFile", qw/ MyTask /, "touch MyFile";
+    # Description, Flags, and Dependancies can be specified in any order so
+    # long as they are between the task name and code.
+    file "MyFile", "MyFile creates an empty file called MyFile", { FlagA => 1 }, [qw/ MyTask /], "touch MyFile";
 
-    describe "MyGroup", "Runs all the tasks";
-    group "MyGroup", qw/ MyTask MyTask2 MyTask3 MyFile /;
+    group "MyGroup", [qw/ MyTask MyTask2 MyTask3 MyFile /], "Group of tasks";
 
     # You can also define a task in a named parameter style using a hash:
     task {
         name => 'A Task',
         code => sub { ... }, # Or "shell code"
         deps => [ 'MyTask', 'MyTask2' ],
-        flags => FLAGS
+        flags => { FlagA => 1, FlagB => 'Blah' },
+        description => 'This is a task.',
     };
+
+    # If you want to be able to run your PPBFile directly, instead of relying on
+    # the ppbuild command, call do_tasks() just before the end.
+    do_tasks();
+
+    1; #You must end your file with a true value.
 
 To use it:
 
@@ -150,35 +158,49 @@ To use it:
 
     $ ppbuild --file PPBFile --tasks
     Tasks:
-     MyTask  - Completes the first task
-     MyTask2 - Completes MyTask2
+     MyTask  - Task named MyTask, run perl code.
+     MyFile  - MyFile creates an empty file called MyFile
      ...
 
     $ ppbuild MyTask2 MyFile
 
     $ ppbuild ..tasks to run..
 
+If you call do_tasks() at the end of the PPBFile you can call it directly:
+
+    $ ./PPBFile --tasks
+    $ ./PPBFile MyTask MyTask2
+
+
 =head1 HOW IT WORKS
 
 The ppbuild script uses a PPBFile file to build a project. This is similar to make
-and Makefiles. PPBFiles are pure perl files. To define a task use the Task,
-Group, or file functions. Give a task a description using the describe function.
+and Makefiles. PPBFiles are pure perl files. To define a task use the task,
+group, or file functions.
 
 The first argument to any task creation function is the name of the task. The
-last argument is usually the code to run. All arguments in the middle should be
-names of tasks that need to run first or flags denoted by ':flag:'. The code
-argument can be a string, or a perl sub. If the code is a sub it will be run
-when the task is run. If the code is a string it will be passed to the shell
-using system().
+last argument is usually the code to run. The code argument can be a string, or
+a perl sub. If the code is a sub it will be run when the task is run. If the
+code is a string it will be passed to the shell using system().
 
-The ppbuild script automatically adds PPBuild to the library search path. If
+The arguments between the name and code can come in any order. Hashref
+arguments are treated as flag lists. Arrayref arguments are treated as lists of
+dependancies. The first string parameter is treated as the task description.
+With exception of string arguments, all arguments between name and code of the
+same type will be combined and flattened.
+
+The ppbuild script automatically adds ./PPBuild/ to the library search path. If
 you wish to write build system specific support files you can place them in a
 PPBuild directory and not need to manually call perl -I PPBuild, or add use lib
 'PPBuild' yourself in your PPBFile. As well if you will be sharing the codebase
 with others, and do not want to add PPBuild as a requirement you can copy
 PPBuild.pm into the PPBuild directory in the project.
 
-=head1 EXPORTED FUNCTIONS
+=head1 METHODS / EXPORTED FUNCTIONS
+
+PPBuild is object oriented under the hood. The following are both methods on
+App::PPBuild objects, and exported as functions. When used in function form
+they act upon a global default App::PPBuild object.
 
 =over 4
 
@@ -187,68 +209,62 @@ PPBuild.pm into the PPBuild directory in the project.
 #}}}
 
 package App::PPBuild;
+
+BEGIN {
+    $INC{ 'App/PPBuild.pm' } = $INC{ 'inc/App/PPBuild.pm' } if $INC{ 'inc/App/PPBuild.pm' } and not $INC{ 'App/PPBuild.pm' };
+    *inc::App::PPBuild:: = *App::PPBuild::;
+}
+
 use vars qw($VERSION);
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 use Exporter 'import';
-our @EXPORT = qw/ task file group describe /;
-our @EXPORT_OK = qw/ runtask tasklist session write_session add_task parse_params /;
+our @EXPORT = qw/ task file group do_tasks /;
+our @EXPORT_OK = qw/ runtask tasklist session write_session load_session add_task parse_params describe /;
 
+use lib qw/ PPBuild inc /;
 use App::PPBuild::Task;
 use App::PPBuild::Task::File;
+use App::PPBuild::CUI;
 use Carp;
-use YAML::Syck qw//;
-use Data::Dumper;
 
-my %TASKS;
-my %DESCRIPTIONS;
-my $SESSION = {};
-
-=item describe()
-
-Used to add or retrieve a task description.
-
-    describe( 'MyTask', 'Description' );
-    describe 'MyTask', "Description";
-    my $description = describe( 'MyTask' );
-
-=cut
-
-sub describe {
-    my ( $name, $description ) = @_;
-    $DESCRIPTIONS{ $name } = $description if $description;
-    return $DESCRIPTIONS{ $name };
-}
+my $GLOBAL;
 
 =item task()
 
 Defines a task.
 
-    task 'MyTask1', qw/ Dependancy /, "Shell Code";
+    task 'TaskName', [ qw/ Dependancy1 ... /], { FlagA => 'blah', ... }, "Task Description", CODE;
+    task 'MyTask1', [qw/ Dependancy /], "Shell Code";
     task 'MyTask2', sub { ..Perl Code... };
     task 'MyTask3', <<SHELL;
     ...Lots of shell commands...
     SHELL
 
-You can specify flags using array_refs at any point in the dependancy list.
-See the FLAGS section for more details.
-
-    task 'MyTask4', 'DepA', 'DebB', [ 'FlagA', 'FlagB' ], qw/ ..More Deps.. /, CODE;
+The first parameter is always the task name, the last parameter is always the
+code. Any arrayref passed in will be used as a list of dependancies, any
+hashref passed in will be considered a set of flags. The first string passed in
+will be used as the task description. If multiple arrayrefs for hashrefs are
+passed in they will be combined and flattened. If multiple strings are
+speciofied between the code and the task name they will be ignored and a
+warning will be generated.
 
 You can also use a hash to define a task in a named parameter style.
 
     task {
-        name => NAME,
-        code => CODE,
-        deps => DEPS,
-        flags => FLAGS,
+        name => 'NAME', #string
+        code => CODE,   #String or coderef
+        deps => DEPS,   #arrayref
+        flags => FLAGS, #hashref
+        description => DESCRIPTION, #string
     };
 
 =cut
 
 sub task {
+    my $self = get_self( \@_ );
     my $params = parse_params( @_ );
-    addtask( App::PPBuild::Task->new( %$params ));
+    $self->addtask( App::PPBuild::Task->new( %$params ));
 }
 
 =item file()
@@ -259,8 +275,9 @@ identical to task().
 =cut
 
 sub file {
+    my $self = get_self( \@_ );
     my $params = parse_params( @_ );
-    addtask( App::PPBuild::Task::File->new( %$params ));
+    $self->addtask( App::PPBuild::Task::File->new( %$params ));
 }
 
 =item group()
@@ -272,14 +289,45 @@ argument.
 =cut
 
 sub group {
-    task @_, undef; #undef as last argument, aka undef as code.
+    my $self = get_self( \@_ );
+    $self->task( @_, undef ); #undef as last argument, aka undef as code.
+}
+
+=item do_tasks()
+
+Call this at the end of your PPBFile if you want to be able to run the PPBFile
+directly. Will parse the parameters and run the specified tasks.
+
+=cut
+
+sub do_tasks {
+    my $self = get_self( \@_ );
+    App::PPBuild::CUI->new( $self )->run;
 }
 
 =back
 
-=head1 IMPORTABLE FUNCTIONS
+=head1 METHODS / IMPORTABLE FUNCTIONS
+
+PPBuild is object oriented under the hood. The following are both methods on
+App::PPBuild objects, and importable as functions. When used in function form
+they act upon a global default App::PPBuild object.
 
 =over 4
+
+=item describe()
+
+Used to retrieve a task description.
+
+    my $description = describe( 'MyTask' );
+
+=cut
+
+sub describe {
+    my $self = get_self( \@_ );
+    my ( $name ) = @_;
+    return $self->task_accessor( $name )->description;
+}
 
 =item runtask()
 
@@ -292,14 +340,15 @@ been run already.
 =cut
 
 sub runtask {
+    my $self = get_self( \@_ );
     my ( $name, $again ) = @_;
 
-    croak( "No task named '$name'.\n" ) unless $TASKS{ $name };
+    croak( "No task named '$name'.\n" ) unless $self->task_accessor( $name );
 
     # Run the Tasks this one depends on:
-    runtask( $_ ) for @{ $TASKS{ $name }->deplist };
+    runtask( $_ ) for @{ $self->task_accessor( $name )->deplist };
 
-    return $TASKS{ $name }->run( $again );
+    return $self->task_accessor( $name )->run( $again );
 }
 
 =item tasklist()
@@ -312,25 +361,50 @@ Returns a list of task names. Return is an array, not an arrayref.
 =cut
 
 sub tasklist {
-    return keys %TASKS;
+    my $self = get_self( \@_ );
+    return keys %{ $self->{ tasks }};
 }
 
 =item addtask()
 
 Add a task to the list of available tasks.
 
-    addtask( $task_ref, $task_name );
-    addtask( PPBuild::Task->new( name => 't', ... ), 't' );
+    $self->addtask( $task_ref, $task_name );
+    $self->addtask( PPBuild::Task->new( name => 't', ... ), 't' );
 
 =cut
 
 sub addtask {
+    my $self = get_self( \@_ );
     my $task = shift;
     my $name = $task->name;
-    croak( "Task '$name' has already been defined!\n" ) if $TASKS{ $name };
-    $task->_set_ran( $SESSION->{ $name } || 0 );
-    $TASKS{ $name } = $task;
+    croak( "Task '$name' has already been defined!\n" ) if $self->task_accessor( $name );
+    $task->_set_ran( $self->session->{ $name } || 0 );
+    return $self->task_accessor( $name, $task );
 }
+
+=item task_accessor()
+
+Retrieve or set a specific task.
+
+    my $task = task_accessor( 'MyTask' );
+    task_accessor( 'MyTask', App::PPBuild::Task->new() );
+
+=cut
+
+sub task_accessor {
+    my $self = get_self( \@_ );
+    my $name = shift;
+    return unless $name;
+    $self->{ tasks }->{ $name } = shift if @_;
+    return $self->{ tasks }->{ $name };
+}
+
+#{{{ Session code
+# Originally I went with YAML for sessions. However since deciding to make
+# PPBuild self-bundling, I want to minimize the non-core dependancies. As such
+# I have written a simple dumper for sessions. If sessions become more
+# complicated than 'name => ran', then I will probably switch back to yaml.
 
 =item session()
 
@@ -339,17 +413,34 @@ run. Use a session if you are scripting the use of ppbuild and want to ensure
 task run counts are preserved between executions of ppbuild.
 
     session '.session';
-    session( 'session.yaml' );
+
+You can also pass a session hashref:
+
+    session {
+        TaskA => 5,
+        TaskB => 22,
+        TaskC => 18,
+    };
 
 =cut
 
 sub session {
-    my $sessionfile = shift;
-    $SESSION = YAML::Syck::LoadFile( $sessionfile ) || die( "Cannot open session file: $!\n" );
+    my $self = get_self( \@_ );
 
-    for my $task ( values %TASKS ) {
-        $task->_set_ran( $SESSION->{ $task->name } || 0 );
+    if ( @_ ) {
+        my $arg = shift;
+        if ( ref $arg and ref $arg eq 'HASH' ) {
+            $self->{ session } = $arg;
+        }
+        else {
+            $self->{ session } = load_session( $arg );
+        }
+
+        for my $task ( values %{ $self->{ tasks }} ) {
+            $task->_set_ran( $self->{ session }->{ $task->name } || 0 );
+        }
     }
+    return $self->{ session };
 }
 
 =item write_session()
@@ -357,18 +448,52 @@ sub session {
 Write the current run counts to a session file.
 
     write_session '.session';
-    write_session( 'session.yaml' );
 
 =cut
 
 sub write_session {
+    my $self = get_self( \@_ );
     my $sessionfile = shift;
-    my $out = {};
-    for my $task ( values %TASKS ) {
-        $out->{ $task->name } = $task->ran;
-    }
-    YAML::Syck::DumpFile( $sessionfile, $out );
+    open( my $FILE, '>', $sessionfile ) || die( "Unable to open session file: $sessionfile. $!\n" );
+    print $FILE "{\n";
+    print $FILE "    " . $_->name . " => " . ( $_->ran || '0' ) . ",\n" for ( values %{ $self->{ tasks }} );
+    print $FILE "};";
+    close( $FILE );
 }
+
+=item load_session()
+
+Reads a session file and returns a hashref. This will not actually set the
+session, to do that use session();
+
+    load_session '.session';
+
+=cut
+
+sub load_session {
+    my $self = get_self( \@_ );
+    my $sessionfile = shift;
+    return {} unless $sessionfile;
+
+    my $content;
+    open( my $FILE, '<', $sessionfile ) || die( "Unable to open session file: $sessionfile. $!\n" );
+    {
+        $/ = undef;
+        $content = <$FILE>;
+    }
+    close( $FILE );
+
+    unless ( $content ) {
+        warn( "Session file is empty!" );
+        return {};
+    }
+
+    my $session = eval $content;
+    warn( "Unable to process session: $@\n" ) if $@;
+    return ( ref $session eq 'HASH' ) ? $session : {};
+}
+
+#}}}
 
 =item parse_params()
 
@@ -381,12 +506,13 @@ Returns:
         code => CODE,
         deps => DEPENDENCIES,
         flags => FLAG LIST,
+        description => DESCRIPTION,
     };
 
 If the first argument is a hash, the hash will be returned, no other parameters
 will be parsed. Otherwise the first param will be the task name, the last will
-be the code, the arrayrefs will be treated as flag lists, and the strings will
-be used as dependancies.
+be the code, the arrayrefs will be treated as dep lists, hashrefs as flag sets,
+the first string as the description.
 
 =cut
 
@@ -398,11 +524,12 @@ sub parse_params {
 
     # If the first param is a hash then the task is defiend with named parameters.
     if ( ref $name eq 'HASH' ) {
-        croak( Dumper( \@_ ) . "Task name not provided in hash!\n" ) unless $name->{ name };
+        croak( "Task name not provided in hash!\n" ) unless $name->{ name };
         warn( "Warning: Ignoring parameters after hash in task defenition '" . $name->{ name } . "'\n" ) if @$params;
         return {
             deps => [],
             flags => {},
+            description => "No Description",
             %$name
         };
     }
@@ -410,17 +537,21 @@ sub parse_params {
     my $code = pop( @$params );
     my $deps = [];
     my $flags = {};
+    my $description = "";
 
     for my $item ( @$params ) {
         if ( ref $item eq 'ARRAY' ) {
-            $flags->{ $_ } = 1 for @$item;
+            push @$deps => @$item;
         }
-        elsif ( $item =~ /^:([^:]+):$/ ) {
-            warn( "Specifying flags with :flag: is deprecated and will be removed in the future.\n" );
-            $flags->{ $1 } = 1;
+        elsif ( ref $item eq 'HASH' ) {
+            $flags = { %$flags, %$item };
+        }
+        elsif ( ref $item ) {
+            croak( "Not sure what to do with: " . ref $item . " in task declaration: $name\n" );
         }
         else {
-            push @$deps => $item;
+            warn( "Extra string in paremeters list: '$item' task description already set to: '$description'\n" ) if $description;
+            $description = $item unless $description;
         }
     }
 
@@ -429,7 +560,77 @@ sub parse_params {
         code => $code,
         deps => $deps,
         flags => $flags,
+        description => $description || "No Description",
     };
+}
+
+=back
+
+=head1 METHODS
+
+The following methods are to be used when using App::PPBuild in an object
+oriented way.
+
+=over 4
+
+=item get_self()
+
+Used to retrieve self. Use instead of shift in methods that can also be
+exported/imported as functions. If the function was called as a method it will
+act the same as $self = shift(@_). If the function is used as an imported function
+it will return the global object without modifying @_.
+
+It takes a reference to the @_ array.
+
+usage:
+
+    sub MyMethod {
+        my $self = get_self( \@_ );
+        ...
+    }
+
+=cut
+
+sub get_self {
+    my ( $params ) = @_;
+    return ( ref $params->[0] eq 'App::PPBuild' ) ? shift( @$params ) : global();
+}
+
+=item global()
+
+returns the default/global App::PPBuild object.
+
+=cut
+
+sub global {
+    $GLOBAL = App::PPBuild->new() unless $GLOBAL;
+    return $GLOBAL;
+}
+
+=item new()
+
+Create a new App::PPBbuild object.
+
+No arguments are required.
+
+usage:
+
+    App::PPBuild->new(
+        tasks => { TaskName => App::PPBuild::Task->new() },
+        session => { TaskName => 0 },
+    );
+
+=cut
+
+sub new {
+    my $class = shift;
+    $class = ref $class || $class;
+    my %proto = @_;
+    return bless {
+        tasks => {},
+        session => {},
+        %proto,
+    }, $class;
 }
 
 1;
@@ -440,9 +641,9 @@ __END__
 
 =head1 FLAGS
 
-Flags are used to specify special behavior. You can specify flags using arrayrefs in the dependancy list.
+Flags are used to specify special behavior. They can be specified using hashrefs in the task declaration.
 
-    task 'MyTask4', 'DepA', 'DebB', [ 'FlagA', 'FlagB' ], qw/ ..More Deps.. /, CODE;
+    task 'MyTask4', [ 'DepA', 'DebB' ], { 'FlagA' => 1, 'FlagB' => 'blah' }, CODE;
 
 The following flags are available for use:
 
@@ -450,10 +651,10 @@ The following flags are available for use:
 
 =item always
 
-the always flag is used to speicfy that the task shoudl always run when called.
+the always flag is used to specify that the task should always run when called.
 This means every time it is listed as a dependancy, and every time it is listed
 at the command prompt. It will run each time regardless of how many times it
-has already run.
+has already run. True or False.
 
 =back
 
@@ -476,7 +677,7 @@ base. See the POD for App::PPBuild for a list of available hooks and methods.
 
 Create a module that uses App::PPBuild, and exports new functions similar to
 task() and file(). The exported functions should build instances of your custom
-task types, then add them to the list using addtask().
+task types, then add them to the list using $self->addtask().
 
 =item Use the new module in your PPBuild file.
 
@@ -488,6 +689,14 @@ to bring in your own exported functions.
 =head1 SEE ALSO
 
 =over 4
+
+=item inc::App::PPBuild
+
+Use this if you want to bundle PPBuild with your code.
+
+=item App::PPBuild::CUI
+
+Command line user interface module for PPBuild.
 
 =item App::PPBuild::Task
 
@@ -516,7 +725,7 @@ Chad Granum E<lt>exodist7@gmail.comE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2008 Chad Granum
+Copyright 2009 Chad Granum
 
 licensed under the GPL version 3.
 You should have received a copy of the GNU General Public License

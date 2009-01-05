@@ -20,8 +20,9 @@ file "test2.file", "Creates the 'test2.file' file using perl", sub {
     close( $file );
 };
 
+group "all_ppb", ["Hi", "Bye", "test.file", "test2.file"], "Runs Hi, Bye, test.file, and test2.file";
+
 task 'install', sub { print "install\n" };
-task 'test', sub { print "test\n" };
 
 do_tasks();
 

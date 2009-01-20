@@ -233,7 +233,7 @@ App::PPBuild object.
 #}}}
 
 use vars qw($VERSION);
-$VERSION = '0.16';
+$VERSION = '0.18';
 
 use Exporter qw/import/;
 our @EXPORT = qw/ task file group svars session_variables load_session write_session variable_list do_tasks /;

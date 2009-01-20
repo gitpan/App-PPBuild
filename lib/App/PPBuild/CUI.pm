@@ -41,7 +41,7 @@ our $one;
 
 GetOptions(
     "file:s"    => \$GETOPT{ file },
-    "session:s" => \$GETOPT{ read_session },
+    "session:s" => \$GETOPT{ load_session },
     "quiet"     => \$GETOPT{ quiet },
     "again"     => \$GETOPT{ again },
     "tasks"     => \$GETOPT{ task_list },
@@ -139,7 +139,7 @@ sub run {
     my $self = shift;
     my ( $file ) = shift;
     $self->file( $file ) if $file;
-    $self->read_session;
+    $self->load_session;
     my $tasklist = $self->task_list;
     print $tasklist if $tasklist;
 
@@ -176,11 +176,12 @@ sub file {
         if $self->ppb ne App::PPBuild::global();
     unless ( _is_same_file( $self->{ file }, $0 )) {
         print "Loading PPBFile...\n";
-        require $self->{ file };
+        eval {
+            package PPBFile;
+            require $self->{ file };
+        };
+        die( @_ ) if @_;
         print "...done\n";
-    }
-    else {
-        print "PPBFile already loaded";
     }
     return $self->{ file };
 }
@@ -193,18 +194,18 @@ sub _is_same_file {
     return $file1 eq $file2;
 }
 
-=item read_session()
+=item load_session()
 
 Load the specified session file.
 
 =cut
 
-sub read_session {
+sub load_session {
     my $self = shift;
-    return unless my $file = $self->{ read_session };
+    return unless my $file = $self->{ load_session };
     return unless -e $file;
     $self->ppb->load_session( $file );
-    return $self->{ read_session };
+    return $self->{ load_session };
 }
 
 =item write_session()
@@ -215,9 +216,9 @@ Write the session to the specified file.
 
 sub write_session {
     my $self = shift;
-    return unless my $file = $self->{ read_session };
+    return unless my $file = $self->{ load_session };
     $self->ppb->write_session( $file );
-    return $self->{ read_session };
+    return $self->{ load_session };
 }
 
 =item task_list()

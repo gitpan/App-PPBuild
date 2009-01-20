@@ -21,4 +21,4 @@ requires:
   Exporter: 5.63
   Getopt::Long: 2.37
   YAML::Syck: 1.05
-version: 0.16
+version: 0.18

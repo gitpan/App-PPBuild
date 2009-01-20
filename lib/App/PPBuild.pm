@@ -170,8 +170,7 @@ PPBFile:
         description => 'This is a task.',
     };
 
-    # If you want to be able to run your PPBFile directly, instead of relying on
-    # the ppbuild command, call do_tasks() just before the end.
+    # Include this line if you want to be able to call your PPBFile directly
     do_tasks();
 
     1; #You must end your file with a true value.
@@ -192,7 +191,7 @@ To use it:
 
     $ ppbuild ..tasks to run..
 
-If you call do_tasks() at the end of the PPBFile you can call it directly:
+You can also call it directly if you call do_tasks() at the end of your PPBFile:
 
     $ ./PPBFile --tasks
     $ ./PPBFile MyTask MyTask2
@@ -234,10 +233,10 @@ App::PPBuild object.
 #}}}
 
 use vars qw($VERSION);
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use Exporter qw/import/;
-our @EXPORT = qw/ task file group do_tasks svars session_variables load_session write_session /;
+our @EXPORT = qw/ task file group svars session_variables load_session write_session variable_list do_tasks /;
 our @EXPORT_OK = qw/ describe runtask runtask_again tasklist add_task task_accessor parse_params /;
 
 #{{{ Magic
@@ -247,7 +246,7 @@ our @EXPORT_OK = qw/ describe runtask runtask_again tasklist add_task task_acces
 =head1 MAGIC
 
 A lot of packages out there do not document their magic. I will outline it up
-front in hopes that being aware of it will help you avoid any nasty gothas they
+front in hopes that being aware of it will help you avoid any nasty gotchas they
 may bring. I have not found or heard of any related to these pieces of magic,
 but you might have.
 
@@ -432,7 +431,14 @@ directly. Will parse the parameters and run the specified tasks.
 
 sub do_tasks {
     my $self = get_self( \@_ );
-    App::PPBuild::CUI->new( $self )->run;
+
+    # Only do this once.
+    return if $self->{ do_tasks };
+    $self->{ do_tasks } = 1;
+
+    my $cui = App::PPBuild::CUI->new( $self );
+    $cui->file( 'PPBFile' );
+    $cui->run;
 }
 #}}}
 
@@ -597,7 +603,7 @@ sub parse_params {
 
     # If the first param is a hash then the task is defiend with named parameters.
     if ( ref $name eq 'HASH' ) {
-        croak( "Task name not provided in hash!\n" ) unless $name->{ name };
+        croak( "Task name not provided in hash!\n" ) unless $name->{ name } and not ref $name->{ name };
         warn( "Warning: Ignoring parameters after hash in task defenition '" . $name->{ name } . "'\n" ) if @$params;
         return {
             deps => [],
@@ -606,6 +612,8 @@ sub parse_params {
             %$name
         };
     }
+
+    croak( "Name must be a string!\n" ) if ref $name;
 
     my $code = pop( @$params );
     my $deps = [];
@@ -824,6 +832,19 @@ specified a warning will be generated and write_session will return false.
 sub write_session {
     my $self = get_self( \@_ );
     return $self->_session->save( @_ );
+}
+#}}}
+#{{{ variable_list()
+
+=item variable_list()
+
+returns a list of session variables that have been initialized.
+
+=cut
+
+sub variable_list {
+    my $self = get_self( \@_ );
+    return $self->_session->variable_list;
 }
 #}}}
 

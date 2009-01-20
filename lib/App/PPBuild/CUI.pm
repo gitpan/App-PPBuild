@@ -41,7 +41,7 @@ our $one;
 
 GetOptions(
     "file:s"    => \$GETOPT{ file },
-    "session:s" => \$GETOPT{ load_session },
+    "session:s" => \$GETOPT{ read_session },
     "quiet"     => \$GETOPT{ quiet },
     "again"     => \$GETOPT{ again },
     "tasks"     => \$GETOPT{ task_list },
@@ -138,8 +138,8 @@ shifted off, NOT preserved, This is by design.
 sub run {
     my $self = shift;
     my ( $file ) = shift;
-    $self->file( $file );
-    $self->load_session;
+    $self->file( $file ) if $file;
+    $self->read_session;
     my $tasklist = $self->task_list;
     print $tasklist if $tasklist;
 
@@ -169,27 +169,42 @@ created with a different App::PPBuild object this will generate a warning.
 sub file {
     my $self = shift;
     $self->{ file } ||= shift if @_;
-    return unless $self->{ file };
+    return unless $self->{ file } and -e $self->{ file };
     warn "WARNING: Loading PPBFile while using non-global APP::PPBuild object! "
         . "This is probably not what you want. "
         . "Tasks in the PPBFile will go to the global PPBuild object, not the active one.\n"
         if $self->ppb ne App::PPBuild::global();
-    require $self->{ file };
+    unless ( _is_same_file( $self->{ file }, $0 )) {
+        print "Loading PPBFile...\n";
+        require $self->{ file };
+        print "...done\n";
+    }
+    else {
+        print "PPBFile already loaded";
+    }
     return $self->{ file };
 }
 
-=item load_session()
+sub _is_same_file {
+    my ( $file1, $file2 ) = @_;
+    return unless $file1 and $file2;
+    $file1 =~ s,^\./,,ig;
+    $file2 =~ s,^\./,,ig;
+    return $file1 eq $file2;
+}
+
+=item read_session()
 
 Load the specified session file.
 
 =cut
 
-sub load_session {
+sub read_session {
     my $self = shift;
-    return unless my $file = $self->{ load_session };
+    return unless my $file = $self->{ read_session };
     return unless -e $file;
     $self->ppb->load_session( $file );
-    return $self->{ load_session };
+    return $self->{ read_session };
 }
 
 =item write_session()
@@ -200,9 +215,9 @@ Write the session to the specified file.
 
 sub write_session {
     my $self = shift;
-    return unless my $file = $self->{ load_session };
+    return unless my $file = $self->{ read_session };
     $self->ppb->write_session( $file );
-    return $self->{ load_session };
+    return $self->{ read_session };
 }
 
 =item task_list()

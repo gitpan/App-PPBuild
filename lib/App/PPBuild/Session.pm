@@ -88,6 +88,11 @@ sub current {
     return $self->{ current };
 }
 
+sub variable_list {
+    my $self = shift;
+    return [ keys %{ $self->current }];
+}
+
 =item current_variable()
 
 Get the current value of a session variable. If the value has not been

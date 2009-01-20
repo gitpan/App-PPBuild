@@ -2,10 +2,5 @@
 use strict;
 use warnings;
 
-# If there is a ppbuild dir present then add it to @INC so the PPBuild file can
-# access its support files.
-use lib qw/ PPBuild inc /;
-
-use App::PPBuild::CUI;
-
-App::PPBuild::CUI->new->run( 'PPBFile' );
+use App::PPBuild qw/ do_tasks /;
+do_tasks();

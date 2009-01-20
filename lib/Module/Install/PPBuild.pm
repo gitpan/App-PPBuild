@@ -1,6 +1,6 @@
 package Module::Install::PPBuild;
 use base 'Module::Install::Base';
-use App::PPBuild::Makefile qw//;
+use App::PPBuild::Makefile ();
 
 #{{{ POD
 
@@ -93,7 +93,7 @@ sub ppbfile {
     my $post = App::PPBuild::Makefile::helpers( $PREFIX );
     #Override any rules that have a corresponding task
     {
-        for my $task ( App::PPBuild::Makefile::tasklist() ) {
+        for my $task ( App::PPBuild::tasklist() ) {
             if ( my $rule = $overrides{ $task } ) {
                 task2function( $task, $rule );
             }
@@ -135,6 +135,8 @@ EOT
     eval $code;
 }
 
+1;
+
 __END__
 
 =back
@@ -145,7 +147,7 @@ Chad Granum E<lt>exodist7@gmail.comE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2008 Chad Granum
+Copyright 2009 Chad Granum
 
 licensed under the GPL version 3.
 You should have received a copy of the GNU General Public License

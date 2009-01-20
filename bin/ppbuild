@@ -6,7 +6,6 @@ use warnings;
 # access its support files.
 use lib qw/ PPBuild inc /;
 
-use App::PPBuild;
 use App::PPBuild::CUI;
 
 App::PPBuild::CUI->new->run( 'PPBFile' );

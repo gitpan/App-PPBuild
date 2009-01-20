@@ -27,16 +27,16 @@ is(
     MY::postamble(),
     "
 ppb_tasks:
-\t\@ppbuild --tasks
+\t\@perl ./t/res/PPBFile --tasks
 
 ppb_clear_session:
 \t\@rm -f .session
 
 ppb_TaskA: ppb_clear_session
-\t\@ppbuild --session .session TaskA
+\t\@perl ./t/res/PPBFile --session .session TaskA
 
 ppb_TaskB: ppb_clear_session
-\t\@ppbuild --session .session TaskB
+\t\@perl ./t/res/PPBFile --session .session TaskB
 
 ",
     "task rules are defined"

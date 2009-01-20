@@ -1,3 +1,7 @@
+package App::PPBuild::CUI;
+use strict;
+use warnings;
+
 #{{{ POD
 
 =pod
@@ -25,21 +29,16 @@ Many of these rely on data obtained from Getopt::Long to run.
 
 #}}}
 
-package App::PPBuild::CUI;
-use strict;
-use warnings;
-
 # If there is a ppbuild dir present then add it to @INC so the PPBuild file can
 # access its support files.
 
 use lib q/ PPBuild inc /;
-use App::PPBuild qw//;
 use Getopt::Long;
-use App::PPBuild ();
+use Carp;
 
 our %GETOPT;
+our $one;
 
-use Getopt::Long;
 GetOptions(
     "file:s"    => \$GETOPT{ file },
     "session:s" => \$GETOPT{ load_session },
@@ -84,11 +83,13 @@ will use the global.
 =cut
 
 sub new {
+    return $one if $one;
     my $class = shift;
     $class = ref $class || $class;
     my ( $ppb ) = @_;
-    $ppb ||= App::PPBuild->global;
-    bless { %GETOPT, ppb => $ppb }, $class;
+    croak( 'you must provide a ppbuild object.' ) unless $ppb;
+    $one = bless { %GETOPT, ppb => $ppb }, $class;
+    return $one;
 }
 
 =item ppb()
@@ -172,7 +173,7 @@ sub file {
     warn "WARNING: Loading PPBFile while using non-global APP::PPBuild object! "
         . "This is probably not what you want. "
         . "Tasks in the PPBFile will go to the global PPBuild object, not the active one.\n"
-        if $self->ppb ne App::PPBuild->global;
+        if $self->ppb ne App::PPBuild::global();
     require $self->{ file };
     return $self->{ file };
 }
@@ -186,7 +187,8 @@ Load the specified session file.
 sub load_session {
     my $self = shift;
     return unless my $file = $self->{ load_session };
-    $self->ppb->session( $file );
+    return unless -e $file;
+    $self->ppb->load_session( $file );
     return $self->{ load_session };
 }
 

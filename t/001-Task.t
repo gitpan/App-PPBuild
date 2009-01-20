@@ -21,7 +21,7 @@ isa_ok( $one, $CLASS, "Created instance of Task." );
 is( $one->run, 1, "Task runs, code is run." );
 is( $one->ran, 1, "Task has been run once" );
 is( $one->run, "Task TaskA Has already been run.", "Task has been run" );
-is( $one->run( 1 ), 1, "Task runs again, code is run again." );
+is( $one->run_again( 1 ), 1, "Task runs again, code is run again." );
 is( $one->ran, 2, "Task has been run twice" );
 is( $one->run, "Task TaskA Has already been run.", "Task has been run" );
 $one->{ flags } = { again => 1 };

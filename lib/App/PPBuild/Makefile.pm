@@ -77,7 +77,9 @@ our @EXPORT = qw/ ppbfile write_makefile /;
 # access its support files.
 use lib "PPBuild";
 
-use App::PPBuild qw/ runtask tasklist describe session write_session /;
+our $ppbfile;
+
+use App::PPBuild;
 
 =item ppbfile()
 
@@ -86,8 +88,8 @@ Loads the specified PPBFile. Takes only 1 argument, the PPBFile filename.
 =cut
 
 sub ppbfile {
-    my $file = shift || "PPBFile";
-    require $file;
+    $ppbfile = shift || "PPBFile";
+    require $ppbfile;
 }
 
 =item write_makefile()
@@ -133,7 +135,7 @@ sub all {
     my %params = @_;
     my $prefix = $params{ prefix } || "";
     my $out = header( $prefix ) . helpers( $prefix );
-    $out .= rule( $_, $prefix ) for tasklist();
+    $out .= rule( $_, $prefix ) for App::PPBuild::tasklist();
     return $out;
 }
 
@@ -163,7 +165,7 @@ sub helpers {
     return <<EOT;
 
 ${prefix}tasks:
-\t\@ppbuild --tasks
+\t\@perl ./$ppbfile --tasks
 
 ${prefix}clear_session:
 \t\@rm -f .session
@@ -183,10 +185,12 @@ sub rule {
     my ( $name, $prefix ) = @_;
     return <<EOT;
 ${prefix}${name}: ${prefix}clear_session
-\t\@ppbuild --session .session $name
+\t\@perl ./$ppbfile --session .session $name
 
 EOT
 }
+
+1;
 
 __END__
 

@@ -2,11 +2,12 @@
 use strict;
 use warnings;
 
-use Test::More tests => 52;
+use Test::More tests => 62;
 use Test::Exception;
+use Test::Warn;
 
 use_ok( 'App::PPBuild' );
-use App::PPBuild qw/ describe task file group runtask tasklist parse_params /;
+use App::PPBuild qw/ describe task file group runtask tasklist parse_params runtask_again /;
 
 use vars qw/ $tmp /;
 
@@ -49,7 +50,7 @@ is_deeply(
 $tmp = task 'Hi', sub { return 'Hi' };
 is( runtask( 'Hi' ), 'Hi', "task runs the first time." );
 is( runtask( 'Hi' ), 'Task Hi Has already been run.', "task does not run the second time." );
-is( runtask( 'Hi', 1 ), 'Hi', "task forced to run again" );
+is( runtask_again( 'Hi' ), 'Hi', "task forced to run again" );
 
 dies_ok { runtask( 'Faketask' ) } "Cannot run non-existant task";
 
@@ -138,3 +139,49 @@ is_deeply(
     },
     "Parsing complicated defenition"
 );
+
+$ENV{ 'B' } = 'b';
+
+load_session( { variables => { C => 'c' } } );
+svars(
+    A => my $a = 'a',
+    B => my $b = 'not right',
+    C => my $c,
+    A => my $a2,
+);
+is( $a, 'a', 'Got from default' );
+is( $b, 'b', 'Got from ENV' );
+is( $c, 'c', 'Got from session' );
+is( $a2, 'a', 'Got from default' );
+
+$a = 'bob';
+is( $a, 'bob', '$a set' );
+is( $a2, 'bob', '$a2 was effected' );
+
+$a2 = 'ted';
+is( $a, 'ted', '$a was effected' );
+is( $a2, 'ted', '$a2 was set' );
+
+    my $x;
+    warning_is {
+        svars(
+            'X' => $x,
+            'Y' => $x,
+        );
+    }
+    "Warning: you listed a variable more than once in a single call to session_variables(). Hint: ident was 'Y'",
+    "Using a single variable twice gives a warning.";
+
+    warning_is {
+        svars(
+            'X' => my $y = 'y',
+            'X' => my $z = 'z',
+        );
+    }
+    "Warning: 'X' session variable default set multiple times in one call to session_variables().",
+    "Assigning more than one default value in a single call warns.";
+
+
+
+
+

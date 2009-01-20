@@ -40,12 +40,12 @@ These are subject to change and are not made available through exporter.
 
 #}}}
 
-use App::PPBuild qw//;
-use App::PPBuild::Makefile;
+use App::PPBuild ();
 use File::Copy;
 
 include( $_ ) for grep { /^App\/PPBuild/ } keys %INC;
 include( 'Getopt/Long.pm' );
+include( 'YAML/Syck.pm' );
 
 =item include()
 
@@ -58,9 +58,11 @@ sub include {
     my ( $module ) = @_;
     my $destination = "./inc/$module";
     mkpath( $destination );
-    copy( $INC{ $module }, $destination );
-    die ( "Cannot copy module '$module': $!\n" ) unless -e $destination;
-    print "Included module: $module\n";
+    unless ( -e $destination ) {
+        copy( $INC{ $module }, $destination );
+        die ( "Cannot copy module '$module': $!\n" ) unless -e $destination;
+        print "Bundled module: $module\n";
+    }
 }
 
 =item mkpath()
@@ -71,7 +73,7 @@ path. mkpath('path/to/module.pm') will create the 'path/to' directory tree.
 =cut
 
 sub mkpath {
-    my ( $path ) = shift;
+    my ( $path ) = @_;
     $path =~ s,[^/]+$,,;
     $path =~ s,^[\./]+,,;
     _mkrdir( ".", split( /\/+/, $path ));

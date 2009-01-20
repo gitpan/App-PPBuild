@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 26;
+use Test::More tests => 25;
 use Test::Exception;
 
 use vars qw/ $one $tmp $CLASS /;
@@ -11,14 +11,15 @@ use_ok( $CLASS );
 use App::PPBuild::CUI;
 use App::PPBuild;
 
-ok( $one = $CLASS->new );
+dies_ok { $one = $CLASS->new() } "Need to provide a ppbuild object.";
+$one = $CLASS->new( App::PPBuild::global());
 isa_ok( $one, $CLASS, "Created object is a $CLASS" );
 ok( $one->help, "Help" );
 
+$App::PPBuild::CUI::one = undef;
 is( $CLASS->new( 'a' )->ppb, 'a', "Setting ppb at creations works" );
 is( $CLASS->new( 'a' )->ppb( 'b' ), 'b', "Setting ppb works" );
 
-is( $one->ppb, App::PPBuild::global(), "By default global ppb is used.");
 is( $one->ppb( 'b' ), 'b', "Setting ppb works" );
 is( $one->ppb, 'b', "Setting ppb works" );
 $one->ppb( App::PPBuild::global() );

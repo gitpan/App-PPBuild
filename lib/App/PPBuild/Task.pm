@@ -71,18 +71,34 @@ sub new {
 =item run()
 
 Run the task. If the task has been run it will not run again unless the 'again'
-flag is set, or a true value is passed to the run method. Will determine code
-type, run it, and then check to be sure the code ran succesfully.
+flag is set. Will determine code type, run it, and then check to be sure the
+code ran succesfully.
+
+If the code is a perl sub then any parameters passed to run() will be passed
+into the task code.
 
 =cut
 
 sub run {
     my $self = shift;
-    my ( $again ) = @_;
+    return "Task " . $self->name . " Has already been run." if $self->ran and not $self->flag( 'again' );
+    return $self->_run( @_ );
+}
 
-    unless( $again or $self->flag( 'again' )) {
-        return "Task " . $self->name . " Has already been run." if $self->ran;
-    }
+=item run_again()
+
+Run the task even if it has already been run. Usage is identical to run().
+
+=cut
+
+sub run_again {
+    my $self = shift;
+    return $self->_run( @_ );
+}
+
+sub _run {
+    my $self = shift;
+
     $self->{ ran }++;
 
     return 1 unless my $code = $self->code;
@@ -90,10 +106,10 @@ sub run {
     my $exit;
     my $ref = ref $code;
     if ( $ref eq 'CODE' ) {
-        $exit = $code->();
+        $exit = $code->( @_ );
     }
     elsif ( $ref ) {
-        $exit = hook_run( $code );
+        $exit = hook_run( $code, @_ );
     }
     else { # Not a reference, shell 'script'
         exit($? >> 8) if system( $code );
@@ -215,7 +231,8 @@ sub hook_proto { {} }
 =item hook_run()
 
 hook_run is used to run code of types other than coderef or string. It is a
-method. The 'code' from the task is the only parameter. Returns a string.
+method. The 'code' from the task is the first parameter. Parameters from
+command line come next. Returns a string.
 
 =cut
 

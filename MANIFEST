@@ -1,7 +1,6 @@
 bin/ppbuild
 example/basic/Makefile.PL
 example/basic/PPBFile
-example/basic/test.file
 example/bundle/PPBFile
 example/Module-Install/Makefile.PL
 example/Module-Install/PPBFile
@@ -17,6 +16,8 @@ inc/Module/Install/WriteAll.pm
 lib/App/PPBuild.pm
 lib/App/PPBuild/CUI.pm
 lib/App/PPBuild/Makefile.pm
+lib/App/PPBuild/Session.pm
+lib/App/PPBuild/Session/Variable.pm
 lib/App/PPBuild/Task.pm
 lib/App/PPBuild/Task/File.pm
 lib/inc/App/PPBuild.pm
@@ -33,6 +34,8 @@ t/004-Sessions.t
 t/005-ModuleInstall.t
 t/007-incppbuild.t
 t/008-cui.t
+t/009-Session.t
+t/010-Session-Variable.t
 t/res/Makefile.wantA
 t/res/Makefile.wantB
 t/res/PPBFile

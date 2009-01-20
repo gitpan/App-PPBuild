@@ -3,14 +3,14 @@ default: tasks
 
 
 tasks:
-	@ppbuild --tasks
+	@perl ./t/res/PPBFile --tasks
 
 clear_session:
 	@rm -f .session
 
 TaskA: clear_session
-	@ppbuild --session .session TaskA
+	@perl ./t/res/PPBFile --session .session TaskA
 
 TaskB: clear_session
-	@ppbuild --session .session TaskB
+	@perl ./t/res/PPBFile --session .session TaskB
 

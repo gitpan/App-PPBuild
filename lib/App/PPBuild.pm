@@ -1,6 +1,10 @@
+package App::PPBuild;
 use strict;
 use warnings;
 
+###########################################################
+# Package stuff and magic
+###########################################################
 #{{{ POD
 
 =pod
@@ -116,6 +120,28 @@ PPBFile:
     # *** OR ***
     use App::PPBuild;     #If you DO NOT want to include a copy of App::PPBuild with your distribution.
 
+    # Create some session variables. These follow a make like order for where they get their values.
+    # If the given ID has already been initialized it will get the value it already has
+    # If the environment variable is set the value will be that.
+    # If there is no environment variable then it will try to pull it from the
+    # loaded session (see sessions)
+    # If there is no environment variable or session value it will use the
+    # default/fallback listed in this call
+    # undef is the final fallback.
+    session_variables(
+        IDENT => my $variable = 'default/fallback value'
+
+        # Will be the $HOME environment variable, or the session HOME variable, or '/home/bob'.
+        HOME  => my $home = '/home/bob',
+        CC    => our $CC  = '/usr/bin/gcc',
+
+        A     => my $a, #No default
+    );
+
+    # This will make it so any variables tied to the 'A' session variable will
+    # have 'blah' as their value.
+    $a = 'blah';
+
     # Define the task 'MyTask'
     task "MyTask", [ "Dependancy task 1", "Dep task 2", ... ], "Task named MyTask, run perl code.", sub {
         ... Perl code to Complete the task ...
@@ -196,11 +222,129 @@ PPBuild directory and not need to manually call perl -I PPBuild, or add use lib
 with others, and do not want to add PPBuild as a requirement you can copy
 PPBuild.pm into the PPBuild directory in the project.
 
+=head1 OBJECT ORIENTED
+
+PPBuild is object oriented under the hood. Unless otherwise stated, all
+subroutines are both methods on App::PPBuild objects, and exported as
+functions. When used in function form they act upon a global default
+App::PPBuild object.
+
+=cut
+
+#}}}
+
+use vars qw($VERSION);
+$VERSION = '0.14';
+
+use Exporter qw/import/;
+our @EXPORT = qw/ task file group do_tasks svars session_variables load_session write_session /;
+our @EXPORT_OK = qw/ describe runtask runtask_again tasklist add_task task_accessor parse_params /;
+
+#{{{ Magic
+
+#{{{ POD
+
+=head1 MAGIC
+
+A lot of packages out there do not document their magic. I will outline it up
+front in hopes that being aware of it will help you avoid any nasty gothas they
+may bring. I have not found or heard of any related to these pieces of magic,
+but you might have.
+
+=over 4
+
+=item BEGIN modifies $INC
+
+App::PPBuild may be loaded directly, or it may be loaded indirectly by
+inc::App::PPBuild. When the latter is used it loads inc/App/PPBuild.pm, which
+means the other modules being loaded will try to load App::PPBuild again. This
+is because %INC keeps record of every module that was loaded, and which file it
+was found in.
+
+To solve this problem App::PPBuild will add itself to %INC under the correct
+relative path name:
+
+    BEGIN {
+        $INC{ 'App/PPBuild.pm' } ||= __FILE__;
+    }
+
+=item App::PPBuild overrides inc::App::PPBuild's import() function.
+
+When you use inc::App::PPBuild instead of App::PPBuild you do not get all the
+exported functions. To solve this App::PPBuild will override
+inc::App::PPBuild's import function to be an alias to App::PPBuilds. This
+override takes effect immedietly since all 'use' directives are treated the
+same as a BEGIN block, and inc::App::PPBuild uses App::PPBuild.
+
+=item use lib qw/ PPBuild inc /;
+
+Since inc may have bundled copies of required modules it is added to the
+library path. As well PPBuild is added to the path to make it easy for users to
+seperate functionality into included modules that are kept seperate from the
+bundled ones.
+
+=back
+
+=cut
+
+#}}}
+
+BEGIN {
+    $INC{ 'App/PPBuild.pm' } ||= __FILE__;
+}
+
+# This courtesy of ewilhelm.
+sub inc::App::PPBuild::import {
+    shift;
+    unshift( @_, __PACKAGE__ );
+    goto &App::PPBuild::import;
+}
+
+use lib qw/ PPBuild inc /;
+
+#}}}
+
+use App::PPBuild::Task;
+use App::PPBuild::Task::File;
+use App::PPBuild::CUI;
+use App::PPBuild::Session;
+use App::PPBuild::Session::Variable;
+use Filter::Simple;
+use Carp;
+use Storable;
+
+###########################################################
+# Package variables
+###########################################################
+#{{{ PACKAGE VARIABLES
+
+=head1 PACKAGE VARIABLES
+
+These are the package variables for App::PPBuild. You should not directly
+access these. Look for an accessor instead. Documented for completeness.
+
+=over 4
+
+=item $App::PPBuild::GLOBAL
+
+The global App::PPBuild object that is used by default when using exported
+functions instead of method form.
+
+=cut
+
+our $GLOBAL;
+#}}}
+
+###########################################################
+# Methods / Exported functions
+###########################################################
+#{{{ POD
+
+=back
+
 =head1 METHODS / EXPORTED FUNCTIONS
 
-PPBuild is object oriented under the hood. The following are both methods on
-App::PPBuild objects, and exported as functions. When used in function form
-they act upon a global default App::PPBuild object.
+The following methods are also exported as functions by default (see not on object orientation above.)
 
 =over 4
 
@@ -208,27 +352,7 @@ they act upon a global default App::PPBuild object.
 
 #}}}
 
-package App::PPBuild;
-
-BEGIN {
-    $INC{ 'App/PPBuild.pm' } = $INC{ 'inc/App/PPBuild.pm' } if $INC{ 'inc/App/PPBuild.pm' } and not $INC{ 'App/PPBuild.pm' };
-    *inc::App::PPBuild:: = *App::PPBuild::;
-}
-
-use vars qw($VERSION);
-$VERSION = '0.13';
-
-use Exporter 'import';
-our @EXPORT = qw/ task file group do_tasks /;
-our @EXPORT_OK = qw/ runtask tasklist session write_session load_session add_task parse_params describe /;
-
-use lib qw/ PPBuild inc /;
-use App::PPBuild::Task;
-use App::PPBuild::Task::File;
-use App::PPBuild::CUI;
-use Carp;
-
-my $GLOBAL;
+#{{{ task()
 
 =item task()
 
@@ -266,6 +390,8 @@ sub task {
     my $params = parse_params( @_ );
     $self->addtask( App::PPBuild::Task->new( %$params ));
 }
+#}}}
+#{{{ file()
 
 =item file()
 
@@ -279,6 +405,8 @@ sub file {
     my $params = parse_params( @_ );
     $self->addtask( App::PPBuild::Task::File->new( %$params ));
 }
+#}}}
+#{{{ group()
 
 =item group()
 
@@ -292,6 +420,8 @@ sub group {
     my $self = get_self( \@_ );
     $self->task( @_, undef ); #undef as last argument, aka undef as code.
 }
+#}}}
+#{{{ do_tasks()
 
 =item do_tasks()
 
@@ -304,16 +434,28 @@ sub do_tasks {
     my $self = get_self( \@_ );
     App::PPBuild::CUI->new( $self )->run;
 }
+#}}}
+
+###########################################################
+# Methods / Importable Functions
+###########################################################
+#{{{ POD
 
 =back
 
 =head1 METHODS / IMPORTABLE FUNCTIONS
 
-PPBuild is object oriented under the hood. The following are both methods on
-App::PPBuild objects, and importable as functions. When used in function form
-they act upon a global default App::PPBuild object.
+The following methods can be imported as functions (see not on object orientation above.)
+
+    use App::PPBuild qw/ describe runtask runtask_again
 
 =over 4
+
+=cut
+
+#}}}
+
+#{{{ describe()
 
 =item describe()
 
@@ -328,28 +470,48 @@ sub describe {
     my ( $name ) = @_;
     return $self->task_accessor( $name )->description;
 }
+#}}}
+#{{{ runtask()
 
 =item runtask()
 
 Run the specified task.
 
-First argument is the task to run.
-If the Second argument is true the task will be forced to run even if it has
-been run already.
+First argument is the task to run, all additional arguments will be passed to
+the code if it is a perl sub.
 
 =cut
 
 sub runtask {
     my $self = get_self( \@_ );
-    my ( $name, $again ) = @_;
-
-    croak( "No task named '$name'.\n" ) unless $self->task_accessor( $name );
-
-    # Run the Tasks this one depends on:
-    runtask( $_ ) for @{ $self->task_accessor( $name )->deplist };
-
-    return $self->task_accessor( $name )->run( $again );
+    my ( $name, @params ) = @_;
+    return $self->_runtask(
+        name => $name,
+        task_params => \@params,
+        again => 0,
+    );
 }
+#}}}
+#{{{ runtask_again()
+
+=item runtask_again()
+
+Run a task even if it has already been run. First argument is task, additonal
+arguments are passed to the code if it is a perl sub.
+
+=cut
+
+sub runtask_again {
+    my $self = get_self( \@_ );
+    my ( $name, @params ) = @_;
+    return $self->_runtask(
+        name => $name,
+        task_params => \@params,
+        again => 1,
+    );
+}
+#}}}
+#{{{ tasklist()
 
 =item tasklist()
 
@@ -364,6 +526,8 @@ sub tasklist {
     my $self = get_self( \@_ );
     return keys %{ $self->{ tasks }};
 }
+#}}}
+#{{{ addtask()
 
 =item addtask()
 
@@ -379,9 +543,11 @@ sub addtask {
     my $task = shift;
     my $name = $task->name;
     croak( "Task '$name' has already been defined!\n" ) if $self->task_accessor( $name );
-    $task->_set_ran( $self->session->{ $name } || 0 );
+    $task->_set_ran( $self->_session->ran( $name ) || 0 );
     return $self->task_accessor( $name, $task );
 }
+#}}}
+#{{{ task_accessor()
 
 =item task_accessor()
 
@@ -399,101 +565,8 @@ sub task_accessor {
     $self->{ tasks }->{ $name } = shift if @_;
     return $self->{ tasks }->{ $name };
 }
-
-#{{{ Session code
-# Originally I went with YAML for sessions. However since deciding to make
-# PPBuild self-bundling, I want to minimize the non-core dependancies. As such
-# I have written a simple dumper for sessions. If sessions become more
-# complicated than 'name => ran', then I will probably switch back to yaml.
-
-=item session()
-
-Specify a session file to use. Sessions store how many times each task has been
-run. Use a session if you are scripting the use of ppbuild and want to ensure
-task run counts are preserved between executions of ppbuild.
-
-    session '.session';
-
-You can also pass a session hashref:
-
-    session {
-        TaskA => 5,
-        TaskB => 22,
-        TaskC => 18,
-    };
-
-=cut
-
-sub session {
-    my $self = get_self( \@_ );
-
-    if ( @_ ) {
-        my $arg = shift;
-        if ( ref $arg and ref $arg eq 'HASH' ) {
-            $self->{ session } = $arg;
-        }
-        else {
-            $self->{ session } = load_session( $arg );
-        }
-
-        for my $task ( values %{ $self->{ tasks }} ) {
-            $task->_set_ran( $self->{ session }->{ $task->name } || 0 );
-        }
-    }
-    return $self->{ session };
-}
-
-=item write_session()
-
-Write the current run counts to a session file.
-
-    write_session '.session';
-
-=cut
-
-sub write_session {
-    my $self = get_self( \@_ );
-    my $sessionfile = shift;
-    open( my $FILE, '>', $sessionfile ) || die( "Unable to open session file: $sessionfile. $!\n" );
-    print $FILE "{\n";
-    print $FILE "    " . $_->name . " => " . ( $_->ran || '0' ) . ",\n" for ( values %{ $self->{ tasks }} );
-    print $FILE "};";
-    close( $FILE );
-}
-
-=item load_session()
-
-Reads a session file and returns a hashref. This will not actually set the
-session, to do that use session();
-
-    load_session '.session';
-
-=cut
-
-sub load_session {
-    my $self = get_self( \@_ );
-    my $sessionfile = shift;
-    return {} unless $sessionfile;
-
-    my $content;
-    open( my $FILE, '<', $sessionfile ) || die( "Unable to open session file: $sessionfile. $!\n" );
-    {
-        $/ = undef;
-        $content = <$FILE>;
-    }
-    close( $FILE );
-
-    unless ( $content ) {
-        warn( "Session file is empty!" );
-        return {};
-    }
-
-    my $session = eval $content;
-    warn( "Unable to process session: $@\n" ) if $@;
-    return ( ref $session eq 'HASH' ) ? $session : {};
-}
-
 #}}}
+#{{{ parse_params()
 
 =item parse_params()
 
@@ -563,15 +636,219 @@ sub parse_params {
         description => $description || "No Description",
     };
 }
+#}}}
+
+###########################################################
+# Session related variable methods / functions
+###########################################################
+#{{{ POD
+
+=head1 SESSION VARIABLE METHODS/FUNCTIONS
+
+This set of subroutines deals specifically with non-temporary variables. These
+are variables which can be stored in a session for use next time ppbuild is
+run. They also have make-like behavior, the value will be pulled from the
+following sources in this order:
+
+=over 4
+
+=head3 CURRENT
+
+If the variable has been modified during run-time.
+
+=head3 ENV
+
+Pulled from the environment variables.
+
+=head3 SESSION
+
+Pulled from the loaded session
+
+=head3 DEFAULT
+
+A default you specify when initializing the session variable.
+
+=back
+
+=head2 METHODS/FUNCTIONS
+
+All of these are exported by default.
+
+=over 4
+
+=cut
+
+#}}}
+
+#{{{ session_variables()
+
+=item session_variables()
+
+Used to initialize and access session variables.
+
+Usage:
+
+    my $a;
+    our $b;
+    session_variables(
+        'IDENT' => my $var = 'default',
+        'A' => $a = 'default_a',
+        'B' => $b = 'default_b',
+    );
+
+This will declare the variables $a, $b, and $var. It will tie each scalar to
+the current session variable with the given IDENT. The value of the scalar will
+then be set to the environment variable IDENT, the value brought in for IDENT
+from the loaded session, or to the 'default' specified.
+
+If you change the value of the scalar it will be reflected in the session, and
+in any other scalar tied to that IDENT *regardless of scope*. When the session
+is saved the current value of IDENT will be stored.
+
+You can tie as many scalars as you want to each IDENT. However you should only
+specify a default value once per IDENT and call to session_variables. As well
+you should not use the same scalar more than once per call to
+session_variables. Both these conditions are checked for and will generate
+warnings.
+
+Additional Example:
+
+    session_variables(
+        # Will be the previously initialised value, or $ENV{ HOME } or the
+        # session's HOME, or '/home/bob' if nothing else is found.
+        'HOME' => my $home = '/home/bob',
+
+        # Get the system CC compiler, or the default listed
+        'CC'   => my $cc = '/usr/sbin/gcc',
+
+        # Tie a second scalar to the same value - not useful except when
+        # session_variables is called in different scopes.
+        'HOME' => my $home_clone,
+
+        # This will generate a warning since a second default is being provided
+        # for the same IDENT.
+        'HOME' => my $home_bad = 'new_default',
+
+        # This will generate a warning since the same scalar is being tied again.
+        'ANYTHING' => $home_bad,
+
+        # This will generate both warnings.
+        'HOME' => $home_bad = 'another_default',
+    );
+
+=cut
+
+sub session_variables {
+    my $self = get_self( \@_ );
+    my %set;
+    while ( @_ ) {
+        my ( $ident, $default ) = @_[0,1];
+
+        warn( "Warning: you listed a variable more than once in a single call to session_variables(). Hint: ident was '$ident'" ) if $set{ \$_[1] };
+        tie( $_[1], 'App::PPBuild::Session::Variable', $self->_session, $ident );
+        $set{ \$_[1] } = 1;
+
+        if ( defined $default ) {
+            warn( "Warning: '$ident' session variable default set multiple times in one call to session_variables()." ) if $set{ $ident };
+            $set{ $ident } = 1;
+        }
+
+        $self->_session->init_variable( $ident, $default );
+
+        splice(@_, 0, 2);
+    }
+}
+#}}}
+#{{{ svars()
+=item svars()
+
+Alias for session_variables(), syntax and purpose are identical.
+
+=cut
+
+sub svars {
+    goto &session_variables;
+}
+#}}}
+#{{{ load_session()
+
+=item load_session
+
+Load a session. first argument should be either a file name (YAML file) or a
+hashref. Additonal arguments should be parameters.
+
+    load_session( 'session.yaml', override => 1, clear => 1 );
+
+If override is true then the variables from the session will become current.
+This will override the typical order that puts environment variables first. Any
+value specified for variables in the session will become the value. Previously
+initialized session variables that are not overriden by the session will remain
+unchanged.
+
+If clear is true then the current values for all session variables will be
+cleared. No value will remain initialized. Next time the variable is accessed
+it will be reinitialized, first pulling from ENV, then the session. This
+clearing takes place before the override if that is also specified.
+
+Example data structure:
+
+    {
+        variables => {
+            HOME => '/home/bob',
+            CC => '/bin/gcc',
+        },
+        ran => {
+            Task_A => 5,
+            Task_B => 2,
+            ...
+        }
+    }
+
+=cut
+
+sub load_session {
+    my $self = get_self( \@_ );
+    my ( $data ) = @_;
+    $self->_session->load( @_ );
+}
+#}}}
+#{{{ write_session()
+
+=head1 write_session()
+
+Save the current session. Sessions are stored as YAML files. Only argument is a
+filename. If no argument is specified then the filename the session was loaded
+from will be used. If the session was not loaded from a file and no file is
+specified a warning will be generated and write_session will return false.
+
+=cut
+
+sub write_session {
+    my $self = get_self( \@_ );
+    return $self->_session->save( @_ );
+}
+#}}}
+
+###########################################################
+# Methods
+###########################################################
+#{{{ POD
 
 =back
 
 =head1 METHODS
 
 The following methods are to be used when using App::PPBuild in an object
-oriented way.
+oriented way. They are not exported, and you probably will never need them
+unless you are writing an extension.
 
 =over 4
+
+=cut
+
+#}}}
+
+#{{{ get_self()
 
 =item get_self()
 
@@ -593,8 +870,10 @@ usage:
 
 sub get_self {
     my ( $params ) = @_;
-    return ( ref $params->[0] eq 'App::PPBuild' ) ? shift( @$params ) : global();
+    return ( ref $params->[0] eq __PACKAGE__ ) ? shift( @$params ) : global();
 }
+#}}}
+#{{{ global()
 
 =item global()
 
@@ -606,18 +885,20 @@ sub global {
     $GLOBAL = App::PPBuild->new() unless $GLOBAL;
     return $GLOBAL;
 }
+#}}}
+#{{{ new()
 
 =item new()
 
 Create a new App::PPBbuild object.
 
-No arguments are required.
+None of the arguments are required.
 
 usage:
 
     App::PPBuild->new(
         tasks => { TaskName => App::PPBuild::Task->new() },
-        session => { TaskName => 0 },
+        session => HASH OR FILENAME,
     );
 
 =cut
@@ -626,14 +907,104 @@ sub new {
     my $class = shift;
     $class = ref $class || $class;
     my %proto = @_;
-    return bless {
+    my $session = delete $proto{ session };
+    my $self = bless {
         tasks => {},
-        session => {},
         %proto,
     }, $class;
+    $self->load_session( $session ) if $session;
+    return $self;
 }
+#}}}
+
+###########################################################
+# Private Methods
+###########################################################
+#{{{ POD
+
+=back
+
+=head1 PRIVATE METHODS
+
+These Methods are private. You should never need these. They are documented for
+completeness.
+
+=over 4
+
+=cut
+
+#}}}
+
+#{{{ _session()
+
+=head1 _session()
+
+Retrieve the current session object. Creates a new one if there is not one
+already. No parameters.
+
+=cut
+
+sub _session {
+    my $self = get_self( \@_ );
+    $self->{ _session } ||= App::PPBuild::Session->new($self, {});
+    return $self->{ _session };
+}
+#}}}
+#{{{ __tasks()
+
+=head1 __tasks()
+
+Retrieve the internal tasks hash. Don't play with this. Used in the session
+object only since it needs to modify this to set the ran counts.
+
+=cut
+
+sub __tasks {
+    my $self = shift;
+    return $self->{ tasks };
+}
+#}}}
+#{{{ _runtask()
+
+=head1 _runtask()
+
+This is used by runtask and runtask_again. They are the friendly interfaces to
+this.
+
+Parameters:
+
+    $self->_runtask(
+        name => 'TASK_NAME=PARAM,PARAM2',
+        task_params => \@params,
+        again => BOOLEAN,
+    );
+
+=cut
+
+sub _runtask {
+    my $self = get_self( \@_ );
+    my %params = @_;
+    my ( $name, $arg ) = split( /=/, $params{ name }, 2 );
+    my @params = @{ $params{ task_params }};
+    if ( $arg ) {
+        push @params => eval "( $arg );";
+        die( "Could not process arguments: ( $arg );\n$@\n" ) if $@;
+    }
+
+    croak( "No task named '$name'.\n" )
+        unless my $task = $self->task_accessor( $name );
+
+    # Run the Tasks this one depends on:
+    runtask( $_ ) for @{ $task->deplist };
+
+    return $params{ again } ? $task->run_again( @params )
+                            : $task->run( @params );
+}
+#}}}
 
 1;
+
+#{{{ End Pod
 
 __END__
 
@@ -733,3 +1104,4 @@ along with this.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
+#}}}

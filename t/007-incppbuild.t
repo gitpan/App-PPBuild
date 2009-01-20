@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::Exception;
 
 BEGIN {
@@ -12,8 +12,6 @@ BEGIN {
 }
 
 use vars qw/ $one $tmp $CLASS /;
-$CLASS = 'inc::App::PPBuild';
-use_ok( $CLASS );
 use inc::App::PPBuild;
 
 for my $module ( grep { m/^App\/PPBuild/ } keys %INC ) {
@@ -22,12 +20,14 @@ for my $module ( grep { m/^App\/PPBuild/ } keys %INC ) {
 ok( -e "./inc/Getopt/Long.pm", "Getopt was copied" );
 
 ok( defined \&App::PPBuild::task, "exported functions were imported." );
-ok( defined \&inc::App::PPBuild::task, "exported functions were referenced by inc::App::PPBuild." );
-is( \&App::PPBuild::task, \&inc::App::PPBuild::task, "Functions are the same" );
+ok( defined \&task, "exported functions were imported." );
+ok( defined \&group, "exported functions were imported." );
+
+ok( task( 'blah', undef ), "can run task()" );
 
 #Cleanup
 END {
-    for ( qw{ App/PPBuild App/PPBuild.pm Getopt } ) {
+    for ( qw{ App/PPBuild App/PPBuild.pm Getopt YAML } ) {
         if ( system( "rm -r './inc/$_'" )) {
             warn "rm command failed, inc/$_ was not removed!\n";
         }

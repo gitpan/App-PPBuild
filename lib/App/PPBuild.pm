@@ -234,7 +234,7 @@ App::PPBuild object.
 #}}}
 
 use vars qw($VERSION);
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use Exporter qw/import/;
 our @EXPORT = qw/ task file group do_tasks svars session_variables load_session write_session /;
@@ -643,14 +643,14 @@ sub parse_params {
 ###########################################################
 #{{{ POD
 
+=back
+
 =head1 SESSION VARIABLE METHODS/FUNCTIONS
 
 This set of subroutines deals specifically with non-temporary variables. These
 are variables which can be stored in a session for use next time ppbuild is
 run. They also have make-like behavior, the value will be pulled from the
 following sources in this order:
-
-=over 4
 
 =head3 CURRENT
 
@@ -667,8 +667,6 @@ Pulled from the loaded session
 =head3 DEFAULT
 
 A default you specify when initializing the session variable.
-
-=back
 
 =head2 METHODS/FUNCTIONS
 
@@ -814,7 +812,7 @@ sub load_session {
 #}}}
 #{{{ write_session()
 
-=head1 write_session()
+=item write_session()
 
 Save the current session. Sessions are stored as YAML files. Only argument is a
 filename. If no argument is specified then the filename the session was loaded
@@ -937,7 +935,7 @@ completeness.
 
 #{{{ _session()
 
-=head1 _session()
+=item _session()
 
 Retrieve the current session object. Creates a new one if there is not one
 already. No parameters.
@@ -952,7 +950,7 @@ sub _session {
 #}}}
 #{{{ __tasks()
 
-=head1 __tasks()
+=item __tasks()
 
 Retrieve the internal tasks hash. Don't play with this. Used in the session
 object only since it needs to modify this to set the ran counts.
@@ -966,7 +964,7 @@ sub __tasks {
 #}}}
 #{{{ _runtask()
 
-=head1 _runtask()
+=item _runtask()
 
 This is used by runtask and runtask_again. They are the friendly interfaces to
 this.
